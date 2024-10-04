@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group 'com.example'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Eclipse JDT Core
+    implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.26.0'
+
+    // Checker Framework
+    implementation 'org.checkerframework:checker:3.21.0'
+    annotationProcessor 'org.checkerframework:checker:3.21.0'
+
+    // For AST manipulation (org.eclipse.text)
+    implementation 'org.eclipse.platform:org.eclipse.text:3.12.0'
+
+    // JUnit for testing (optional)
+    testImplementation 'junit:junit:4.13.2'
+}
+
+application {
+    // Set the main class name
+    mainClassName = 'VGRTool'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += [
+        '-Xlint:unchecked',
+        '-Xlint:deprecation',
+        // Include the Checker Framework processor
+        '-processor', 'org.checkerframework.checker.nullness.NullnessChecker'
+    ]
+}
