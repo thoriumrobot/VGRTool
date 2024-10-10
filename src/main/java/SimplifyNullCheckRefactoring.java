@@ -1,5 +1,6 @@
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import java.util.List;
 
 class SimplifyNullCheckRefactoring extends Refactoring {
 

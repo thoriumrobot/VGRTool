@@ -1,6 +1,8 @@
 import java.util.List;
+
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 class AddNullnessAnnotationsRefactoring extends Refactoring {
 
@@ -13,14 +15,10 @@ class AddNullnessAnnotationsRefactoring extends Refactoring {
                 return true;
             }
         }
-        if (node instanceof VariableDeclarationFragment) {
-            VariableDeclarationFragment varFrag = (VariableDeclarationFragment) node;
-            ASTNode parent = varFrag.getParent();
-            if (parent instanceof VariableDeclarationStatement) {
-                VariableDeclarationStatement varStmt = (VariableDeclarationStatement) parent;
-                if (!hasNullnessAnnotation(varStmt.modifiers())) {
-                    return true;
-                }
+        if (node instanceof VariableDeclarationStatement) {
+            VariableDeclarationStatement varStmt = (VariableDeclarationStatement) node;
+            if (!hasNullnessAnnotation(varStmt.modifiers())) {
+                return true;
             }
         }
         return false;
@@ -29,25 +27,28 @@ class AddNullnessAnnotationsRefactoring extends Refactoring {
     @Override
     public void apply(ASTNode node, ASTRewrite rewriter) {
         AST ast = node.getAST();
+        CompilationUnit cu = (CompilationUnit) node.getRoot();
 
         if (node instanceof SingleVariableDeclaration) {
             SingleVariableDeclaration varDecl = (SingleVariableDeclaration) node;
-            addNullableAnnotation(varDecl.modifiers(), rewriter, ast);
+            addNullableAnnotation(varDecl, rewriter, ast, SingleVariableDeclaration.MODIFIERS2_PROPERTY);
         }
-        if (node instanceof VariableDeclarationFragment) {
-            VariableDeclarationFragment varFrag = (VariableDeclarationFragment) node;
-            VariableDeclarationStatement varStmt = (VariableDeclarationStatement) varFrag.getParent();
-            addNullableAnnotation(varStmt.modifiers(), rewriter, ast);
+        if (node instanceof VariableDeclarationStatement) {
+            VariableDeclarationStatement varStmt = (VariableDeclarationStatement) node;
+            addNullableAnnotation(varStmt, rewriter, ast, VariableDeclarationStatement.MODIFIERS2_PROPERTY);
         }
+
+        // Ensure the import statement for @Nullable is present
+        ensureNullableImport(rewriter, cu, ast);
     }
 
-    private void addNullableAnnotation(List<?> modifiers, ASTRewrite rewriter, AST ast) {
-        // Add @Nullable annotation
+    private void addNullableAnnotation(ASTNode node, ASTRewrite rewriter, AST ast, ChildListPropertyDescriptor modifiersProperty) {
+        // Create the @Nullable annotation
         MarkerAnnotation nullableAnnotation = ast.newMarkerAnnotation();
         nullableAnnotation.setTypeName(ast.newSimpleName("Nullable"));
 
-        // Insert the annotation at the beginning of the modifiers
-        ListRewrite listRewrite = rewriter.getListRewrite((ASTNode) modifiers.get(0).getParent(), VariableDeclarationStatement.MODIFIERS2_PROPERTY);
+        // Get the ListRewrite for the modifiers
+        ListRewrite listRewrite = rewriter.getListRewrite(node, modifiersProperty);
         listRewrite.insertFirst(nullableAnnotation, null);
     }
 
@@ -63,4 +64,23 @@ class AddNullnessAnnotationsRefactoring extends Refactoring {
         }
         return false;
     }
+
+    private void ensureNullableImport(ASTRewrite rewriter, CompilationUnit cu, AST ast) {
+        List<?> imports = cu.imports();
+        boolean hasImport = false;
+        for (Object impObj : imports) {
+            ImportDeclaration imp = (ImportDeclaration) impObj;
+            if (imp.getName().getFullyQualifiedName().equals("javax.annotation.Nullable")) {
+                hasImport = true;
+                break;
+            }
+        }
+        if (!hasImport) {
+            ImportDeclaration importDeclaration = ast.newImportDeclaration();
+            importDeclaration.setName(ast.newName("javax.annotation.Nullable"));
+            ListRewrite importRewrite = rewriter.getListRewrite(cu, CompilationUnit.IMPORTS_PROPERTY);
+            importRewrite.insertLast(importDeclaration, null);
+        }
+    }
 }
+

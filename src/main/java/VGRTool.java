@@ -4,6 +4,7 @@ import javax.tools.*;
 
 import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.dom.*;
+import org.eclipse.jdt.core.JavaModelException;
 
 public class VGRTool {
 
@@ -33,28 +34,34 @@ public class VGRTool {
             }
         }
 
-        // Apply refactorings to eliminate warnings
-        RefactoringEngine refactoringEngine = new RefactoringEngine();
-        CompilationUnit refactoredCU = refactoringEngine.refactor(cu, originalWarnings);
+        try {
+            // Apply refactorings to eliminate warnings
+            RefactoringEngine refactoringEngine = new RefactoringEngine();
+            CompilationUnit refactoredCU = refactoringEngine.refactor(cu, originalWarnings);
 
-        // Generate refactored source code
-        String refactoredSource = refactoredCU.toString();
+            // Generate refactored source code
+            String refactoredSource = refactoredCU.toString();
 
-        // Write refactored code to a new file
-        String refactoredFilePath = "Refactored" + new File(sourceFilePath).getName();
-        writeStringToFile(refactoredFilePath, refactoredSource);
+            // Write refactored code to a new file
+            String refactoredFilePath = "Refactored" + new File(sourceFilePath).getName();
+            writeStringToFile(refactoredFilePath, refactoredSource);
 
-        // Run the verifier on the refactored code
-        List<String> refactoredWarnings = runVerifier(refactoredFilePath);
+            // Run the verifier on the refactored code
+            List<String> refactoredWarnings = runVerifier(refactoredFilePath);
 
-        if (refactoredWarnings.isEmpty()) {
-            System.out.println("Refactoring successful. No warnings in refactored code.");
-            System.out.println("Refactored code written to " + refactoredFilePath);
-        } else {
-            System.out.println("Warnings still present after refactoring:");
-            for (String warning : refactoredWarnings) {
-                System.out.println(warning);
+            if (refactoredWarnings.isEmpty()) {
+                System.out.println("Refactoring successful. No warnings in refactored code.");
+                System.out.println("Refactored code written to " + refactoredFilePath);
+            } else {
+                System.out.println("Warnings still present after refactoring:");
+                for (String warning : refactoredWarnings) {
+                    System.out.println(warning);
+                }
             }
+        } catch (JavaModelException e) {
+            e.printStackTrace();
+            System.err.println("Error during refactoring: " + e.getMessage());
+            return;
         }
     }
 

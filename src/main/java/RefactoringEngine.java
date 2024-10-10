@@ -1,6 +1,11 @@
 import java.util.*;
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jface.text.*;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.text.edits.TextEdit;
+import org.eclipse.jface.text.Document;
+import org.eclipse.core.runtime.CoreException; // Import CoreException
+import org.eclipse.jdt.core.JavaModelException; // Import JavaModelException
 
 class RefactoringEngine {
 
@@ -13,7 +18,7 @@ class RefactoringEngine {
         refactorings.add(new AddNullnessAnnotationsRefactoring());
     }
 
-    public CompilationUnit refactor(CompilationUnit cu, List<String> warnings) {
+    public CompilationUnit refactor(CompilationUnit cu, List<String> warnings) throws JavaModelException {
         AST ast = cu.getAST();
 
         // Copy the original AST to avoid modifying it directly
@@ -35,8 +40,8 @@ class RefactoringEngine {
         }
 
         // Apply the changes and return the modified CompilationUnit
-        TextEdit edits = rewriter.rewriteAST();
         Document document = new Document(cu.toString());
+        TextEdit edits = rewriter.rewriteAST(document, null);
         try {
             edits.apply(document);
         } catch (Exception e) {
