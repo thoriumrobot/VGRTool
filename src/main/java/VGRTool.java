@@ -8,62 +8,71 @@ import org.eclipse.jdt.core.JavaModelException;
 
 public class VGRTool {
 
-    public static void main(String[] args) throws IOException {
-        // Check if source file is provided
-        if (args.length != 1) {
-            System.out.println("Usage: java VGRTool <SourceFile.java>");
-            return;
+public static void main(String[] args) throws IOException {
+    // Check if source file is provided
+    if (args.length < 1) {
+        System.out.println("Usage: java VGRTool <SourceFile.java> [Refactoring1 Refactoring2 ...]");
+        return;
+    }
+
+    String sourceFilePath = args[0];
+    String sourceCode = readFileToString(sourceFilePath);
+
+    // Collect refactoring names from command-line arguments
+    List<String> refactoringNames = new ArrayList<>();
+    if (args.length > 1) {
+        refactoringNames = Arrays.asList(args).subList(1, args.length);
+    } else {
+        System.out.println("No refactorings specified. No refactoring will be performed.");
+        return;
+    }
+
+    // Parse the source code into an AST
+    CompilationUnit cu = parse(sourceCode);
+
+    // Run the verifier on the original code
+    List<String> originalWarnings = runVerifier(sourceFilePath);
+
+    if (originalWarnings.isEmpty()) {
+        System.out.println("No warnings from the verifier. No refactoring needed.");
+        return;
+    } else {
+        System.out.println("Verifier Warnings:");
+        for (String warning : originalWarnings) {
+            System.out.println(warning);
         }
+    }
 
-        String sourceFilePath = args[0];
-        String sourceCode = readFileToString(sourceFilePath);
+    try {
+        // Apply specified refactorings to eliminate warnings
+        RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringNames);
+        CompilationUnit refactoredCU = refactoringEngine.refactor(cu, originalWarnings);
 
-        // Parse the source code into an AST
-        CompilationUnit cu = parse(sourceCode);
+        // Generate refactored source code
+        String refactoredSource = refactoredCU.toString();
 
-        // Run the verifier on the original code
-        List<String> originalWarnings = runVerifier(sourceFilePath);
+        // Write refactored code to a new file
+        String refactoredFilePath = "Refactored" + new File(sourceFilePath).getName();
+        writeStringToFile(refactoredFilePath, refactoredSource);
 
-        if (originalWarnings.isEmpty()) {
-            System.out.println("No warnings from the verifier. No refactoring needed.");
-            return;
+        // Run the verifier on the refactored code
+        List<String> refactoredWarnings = runVerifier(refactoredFilePath);
+
+        if (refactoredWarnings.isEmpty()) {
+            System.out.println("Refactoring successful. No warnings in refactored code.");
+            System.out.println("Refactored code written to " + refactoredFilePath);
         } else {
-            System.out.println("Verifier Warnings:");
-            for (String warning : originalWarnings) {
+            System.out.println("Warnings still present after refactoring:");
+            for (String warning : refactoredWarnings) {
                 System.out.println(warning);
             }
         }
-
-        try {
-            // Apply refactorings to eliminate warnings
-            RefactoringEngine refactoringEngine = new RefactoringEngine();
-            CompilationUnit refactoredCU = refactoringEngine.refactor(cu, originalWarnings);
-
-            // Generate refactored source code
-            String refactoredSource = refactoredCU.toString();
-
-            // Write refactored code to a new file
-            String refactoredFilePath = "Refactored" + new File(sourceFilePath).getName();
-            writeStringToFile(refactoredFilePath, refactoredSource);
-
-            // Run the verifier on the refactored code
-            List<String> refactoredWarnings = runVerifier(refactoredFilePath);
-
-            if (refactoredWarnings.isEmpty()) {
-                System.out.println("Refactoring successful. No warnings in refactored code.");
-                System.out.println("Refactored code written to " + refactoredFilePath);
-            } else {
-                System.out.println("Warnings still present after refactoring:");
-                for (String warning : refactoredWarnings) {
-                    System.out.println(warning);
-                }
-            }
-        } catch (JavaModelException e) {
-            e.printStackTrace();
-            System.err.println("Error during refactoring: " + e.getMessage());
-            return;
-        }
+    } catch (JavaModelException e) {
+        e.printStackTrace();
+        System.err.println("Error during refactoring: " + e.getMessage());
+        return;
     }
+}
 
     // Utility method to read a file into a string
     private static String readFileToString(String filePath) throws IOException {

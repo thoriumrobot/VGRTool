@@ -11,11 +11,31 @@ class RefactoringEngine {
 
     private List<Refactoring> refactorings;
 
-    public RefactoringEngine() {
-        // Initialize the list of semantics-preserving refactorings
+    // Map of available refactorings
+    private static final Map<String, Refactoring> AVAILABLE_REFACTORINGS = new HashMap<>();
+
+    static {
+        AVAILABLE_REFACTORINGS.put("SimplifyNullCheck", new SimplifyNullCheckRefactoring());
+        AVAILABLE_REFACTORINGS.put("AddNullnessAnnotations", new AddNullnessAnnotationsRefactoring());
+        // Add more refactorings as needed
+    }
+
+    public RefactoringEngine(List<String> refactoringNames) {
         refactorings = new ArrayList<>();
-        refactorings.add(new SimplifyNullCheckRefactoring());
-        refactorings.add(new AddNullnessAnnotationsRefactoring());
+
+        for (String name : refactoringNames) {
+            Refactoring refactoring = AVAILABLE_REFACTORINGS.get(name);
+            if (refactoring != null) {
+                refactorings.add(refactoring);
+            } else {
+                System.err.println("Unknown refactoring: " + name);
+            }
+        }
+
+        if (refactorings.isEmpty()) {
+            System.err.println("No valid refactorings specified. Exiting.");
+            System.exit(1);
+        }
     }
 
     public CompilationUnit refactor(CompilationUnit cu, List<String> warnings) throws JavaModelException {
