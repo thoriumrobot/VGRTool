@@ -17,6 +17,9 @@ class RefactoringEngine {
     static {
         AVAILABLE_REFACTORINGS.put("SimplifyNullCheck", new SimplifyNullCheckRefactoring());
         AVAILABLE_REFACTORINGS.put("AddNullnessAnnotations", new AddNullnessAnnotationsRefactoring());
+        AVAILABLE_REFACTORINGS.put("AddNullChecksForPossiblyNullFields", new AddNullChecksForPossiblyNullFieldsRefactoring());
+        AVAILABLE_REFACTORINGS.put("MakeNullReturnsExplicit", new MakeNullReturnsExplicitRefactoring());
+        AVAILABLE_REFACTORINGS.put("AvoidReturningNull", new AvoidReturningNullRefactoring());
         // Add more refactorings as needed
     }
 
