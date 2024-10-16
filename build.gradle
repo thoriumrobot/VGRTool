@@ -22,6 +22,7 @@ dependencies {
 
     // Checker Framework Annotations
     implementation 'org.checkerframework:checker-qual:3.21.0'
+    implementation 'org.checkerframework:checker:3.21.0'
     annotationProcessor 'org.checkerframework:checker:3.21.0'
 
     // javax.annotation API (for @Nullable)

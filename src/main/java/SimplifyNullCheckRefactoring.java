@@ -44,28 +44,26 @@ class SimplifyNullCheckRefactoring extends Refactoring {
         rewriter.remove(varDecl.getParent(), null);
     }
 
-    // Utility method to find variable declaration of a given name
-    private VariableDeclarationFragment findVariableDeclaration(ASTNode node, String varName) {
-        // Traverse the parent nodes to find the declaration
-        ASTNode parent = node.getParent();
-        while (parent != null) {
-            if (parent instanceof Block) {
-                Block block = (Block) parent;
-                List<?> statements = block.statements();
-                for (Object stmtObj : statements) {
-                    if (stmtObj instanceof VariableDeclarationStatement) {
-                        VariableDeclarationStatement varStmt = (VariableDeclarationStatement) stmtObj;
-                        for (Object fragObj : varStmt.fragments()) {
-                            VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
-                            if (frag.getName().getIdentifier().equals(varName)) {
-                                return frag;
-                            }
+// Improved findVariableDeclaration method
+private VariableDeclarationFragment findVariableDeclaration(ASTNode node, String varName) {
+    ASTNode current = node;
+    while (current != null) {
+        if (current instanceof Block) {
+            Block block = (Block) current;
+            for (Statement stmt : (List<Statement>) block.statements()) {
+                if (stmt instanceof VariableDeclarationStatement) {
+                    VariableDeclarationStatement varStmt = (VariableDeclarationStatement) stmt;
+                    for (VariableDeclarationFragment frag : (List<VariableDeclarationFragment>) varStmt.fragments()) {
+                        if (frag.getName().getIdentifier().equals(varName)) {
+                            return frag;
                         }
                     }
                 }
             }
-            parent = parent.getParent();
         }
-        return null;
+        current = current.getParent();
     }
+    return null;
+}
+
 }

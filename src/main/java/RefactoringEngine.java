@@ -17,6 +17,7 @@ class RefactoringEngine {
     static {
         AVAILABLE_REFACTORINGS.put("SimplifyNullCheck", new SimplifyNullCheckRefactoring());
         AVAILABLE_REFACTORINGS.put("AddNullnessAnnotations", new AddNullnessAnnotationsRefactoring());
+        AVAILABLE_REFACTORINGS.put("NullabilityRefactoring", new NullabilityRefactoring());
         // Add more refactorings as needed
     }
 
@@ -74,27 +75,31 @@ class RefactoringEngine {
     }
 
     // Method to map warnings to AST nodes
-    private Map<ASTNode, String> mapWarningsToNodes(CompilationUnit cu, List<String> warnings) {
-        Map<ASTNode, String> warningNodes = new HashMap<>();
+private Map<ASTNode, String> mapWarningsToNodes(CompilationUnit cu, List<String> warnings) {
+    Map<ASTNode, String> warningNodes = new HashMap<>();
 
-        for (String warning : warnings) {
-            long lineNumber = extractLineNumber(warning);
-
-            // Find the node at the line number
-            ASTNode node = getNodeAtLine(cu, (int) lineNumber);
-            if (node != null) {
-                warningNodes.put(node, warning);
-            }
+    for (String warning : warnings) {
+        int lineNumber = extractLineNumber(warning);
+        if (lineNumber == -1) {
+            continue;
         }
 
-        return warningNodes;
+        // Use the CompilationUnit's line number mapping
+        int position = cu.getPosition(lineNumber, 0);
+        ASTNode node = NodeFinder.perform(cu, position, 0);
+        if (node != null) {
+            warningNodes.put(node, warning);
+        }
     }
 
+    return warningNodes;
+}
+
     // Utility method to extract line number from warning string
-    private long extractLineNumber(String warning) {
+    private int extractLineNumber(String warning) {
         try {
             String[] parts = warning.split(":");
-            return Long.parseLong(parts[0].replace("Line ", "").trim());
+            return Integer.parseInt(parts[0].replace("Line ", "").trim());
         } catch (Exception e) {
             return -1;
         }
