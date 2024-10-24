@@ -66,6 +66,107 @@ public class IntroduceLocalVariableAndNullCheckRefactoring extends Refactoring {
         listRewrite.insertAfter(ifStatement, varDecl, null);
     }
 
-    // Rest of the helper methods remain the same
+    private Expression getExpression(ASTNode node) {
+        if (node instanceof MethodInvocation) {
+            return ((MethodInvocation) node).getExpression();
+        } else if (node instanceof FieldAccess) {
+            return ((FieldAccess) node).getExpression();
+        }
+        return null;
+    }
+
+    private Block getEnclosingBlock(ASTNode node) {
+        while (node != null && !(node instanceof Block)) {
+            node = node.getParent();
+        }
+        return (Block) node;
+    }
+
+    private String generateVariableName(Expression expr) {
+        // Generate a unique variable name based on the expression
+        String baseName = "tempVar";
+        if (expr instanceof MethodInvocation) {
+            baseName = ((MethodInvocation) expr).getName().getIdentifier();
+        } else if (expr instanceof SimpleName) {
+            baseName = ((SimpleName) expr).getIdentifier();
+        }
+        return baseName + "_local";
+    }
+
+    private VariableDeclarationStatement createVariableDeclaration(AST ast, String varName, Expression expr) {
+        VariableDeclarationFragment fragment = ast.newVariableDeclarationFragment();
+        fragment.setName(ast.newSimpleName(varName));
+        fragment.setInitializer((Expression) ASTNode.copySubtree(ast, expr));
+
+        VariableDeclarationStatement varDecl = ast.newVariableDeclarationStatement(fragment);
+        varDecl.setType(ast.newSimpleType(ast.newSimpleName("Object"))); // Use appropriate type
+        return varDecl;
+    }
+
+    private List<Statement> getDependentStatements(Block block, String varName) {
+        // Collect statements that depend on the variable
+        List<Statement> dependentStatements = new ArrayList<>();
+        for (Object stmtObj : block.statements()) {
+            Statement stmt = (Statement) stmtObj;
+            if (usesVariable(stmt, varName)) {
+                dependentStatements.add(stmt);
+            }
+        }
+        return dependentStatements;
+    }
+
+    private boolean usesVariable(Statement stmt, String varName) {
+        UsesVariableVisitor visitor = new UsesVariableVisitor(varName);
+        stmt.accept(visitor);
+        return visitor.isVariableUsed();
+    }
+
+    // Helper class to replace occurrences of the expression with the new variable
+    class ReplaceExpressionVisitor extends ASTVisitor {
+        private Expression targetExpr;
+        private String varName;
+        private ASTRewrite rewriter;
+
+        public ReplaceExpressionVisitor(Expression targetExpr, String varName, ASTRewrite rewriter) {
+            this.targetExpr = targetExpr;
+            this.varName = varName;
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public void endVisit(MethodInvocation node) {
+            if (node.getExpression() != null && node.getExpression().subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node.getExpression(), node.getAST().newSimpleName(varName), null);
+            }
+        }
+
+        @Override
+        public void endVisit(FieldAccess node) {
+            if (node.getExpression().subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node.getExpression(), node.getAST().newSimpleName(varName), null);
+            }
+        }
+    }
+
+    // Helper class to check if a statement uses the variable
+    class UsesVariableVisitor extends ASTVisitor {
+        private String varName;
+        private boolean variableUsed = false;
+
+        public UsesVariableVisitor(String varName) {
+            this.varName = varName;
+        }
+
+        @Override
+        public void endVisit(SimpleName node) {
+            if (node.getIdentifier().equals(varName)) {
+                variableUsed = true;
+            }
+        }
+
+        public boolean isVariableUsed() {
+            return variableUsed;
+        }
+    }
 }
 

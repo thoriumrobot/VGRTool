@@ -74,6 +74,122 @@ public class IntroduceLocalVariableWithNullCheckRefactoring extends Refactoring 
         listRewrite.insertAfter(ifStmt, varDecl, null);
     }
 
-    // Helper methods (getEnclosingBlock, generateVariableName, determineType, getDependentStatements, isVariableDeclaration, usesVariable, UsesVariableVisitor, ReplaceExpressionVisitor) are the same as above
+    private Block getEnclosingBlock(ASTNode node) {
+        while (node != null && !(node instanceof Block)) {
+            node = node.getParent();
+        }
+        return (Block) node;
+    }
+
+    private String generateVariableName(Expression expr) {
+        String baseName = "tempVar";
+        if (expr instanceof MethodInvocation) {
+            baseName = ((MethodInvocation) expr).getName().getIdentifier();
+        } else if (expr instanceof FieldAccess) {
+            baseName = ((FieldAccess) expr).getName().getIdentifier();
+        } else if (expr instanceof SimpleName) {
+            baseName = ((SimpleName) expr).getIdentifier();
+        }
+        return baseName + "_local";
+    }
+
+    private Type determineType(AST ast, Expression expr) {
+        // Determine the correct type for the variable based on the expression
+        // For simplicity, we'll use 'Object' here, but in practice, you should use the actual type
+        return ast.newSimpleType(ast.newSimpleName("Object"));
+    }
+
+    private List<Statement> getDependentStatements(Block block, String varName) {
+        // Collect statements that use the variable
+        List<Statement> dependentStatements = new ArrayList<>();
+        boolean variableDeclared = false;
+        for (Object obj : block.statements()) {
+            Statement stmt = (Statement) obj;
+            if (!variableDeclared) {
+                // Skip until after the variable declaration
+                if (isVariableDeclaration(stmt, varName)) {
+                    variableDeclared = true;
+                }
+                continue;
+            }
+            if (usesVariable(stmt, varName)) {
+                dependentStatements.add(stmt);
+            }
+        }
+        return dependentStatements;
+    }
+
+    private boolean isVariableDeclaration(Statement stmt, String varName) {
+        if (stmt instanceof VariableDeclarationStatement) {
+            VariableDeclarationStatement varDecl = (VariableDeclarationStatement) stmt;
+            for (Object fragObj : varDecl.fragments()) {
+                VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
+                if (frag.getName().getIdentifier().equals(varName)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean usesVariable(ASTNode node, String varName) {
+        UsesVariableVisitor visitor = new UsesVariableVisitor(varName);
+        node.accept(visitor);
+        return visitor.isFound();
+    }
+
+    // Helper class to check if a node uses a variable
+    private class UsesVariableVisitor extends ASTVisitor {
+        private String varName;
+        private boolean found = false;
+
+        public UsesVariableVisitor(String varName) {
+            this.varName = varName;
+        }
+
+        @Override
+        public boolean visit(SimpleName node) {
+            if (node.getIdentifier().equals(varName)) {
+                found = true;
+                return false; // No need to visit further
+            }
+            return true;
+        }
+
+        public boolean isFound() {
+            return found;
+        }
+    }
+
+    // Helper class to replace occurrences of the expression with the new variable
+    private class ReplaceExpressionVisitor extends ASTVisitor {
+        private Expression targetExpr;
+        private String varName;
+        private ASTRewrite rewriter;
+
+        public ReplaceExpressionVisitor(Expression targetExpr, String varName, ASTRewrite rewriter) {
+            this.targetExpr = targetExpr;
+            this.varName = varName;
+            this.rewriter = rewriter;
+        }
+
+        @Override
+        public void endVisit(MethodInvocation node) {
+            if (node.subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node, node.getAST().newSimpleName(varName), null);
+            } else if (node.getExpression() != null && node.getExpression().subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node.getExpression(), node.getAST().newSimpleName(varName), null);
+            }
+        }
+
+        @Override
+        public void endVisit(FieldAccess node) {
+            if (node.subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node, node.getAST().newSimpleName(varName), null);
+            } else if (node.getExpression().subtreeMatch(new ASTMatcher(), targetExpr)) {
+                rewriter.replace(node.getExpression(), node.getAST().newSimpleName(varName), null);
+            }
+        }
+    }
 }
 
