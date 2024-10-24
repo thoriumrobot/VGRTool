@@ -18,6 +18,11 @@ class RefactoringEngine {
         AVAILABLE_REFACTORINGS.put("SimplifyNullCheck", new SimplifyNullCheckRefactoring());
         AVAILABLE_REFACTORINGS.put("AddNullnessAnnotations", new AddNullnessAnnotationsRefactoring());
         AVAILABLE_REFACTORINGS.put("NullabilityRefactoring", new NullabilityRefactoring());
+        AVAILABLE_REFACTORINGS.put("WrapWithCheckNotNullRefactoring", new WrapWithCheckNotNullRefactoring());
+        AVAILABLE_REFACTORINGS.put("AddNullCheckBeforeMethodCallRefactoring", new AddNullCheckBeforeMethodCallRefactoring());
+        AVAILABLE_REFACTORINGS.put("AddNullCheckBeforeDereferenceRefactoring", new AddNullCheckBeforeDereferenceRefactoring());
+        AVAILABLE_REFACTORINGS.put("IntroduceLocalVariableAndNullCheckRefactoring", new IntroduceLocalVariableAndNullCheckRefactoring());
+        AVAILABLE_REFACTORINGS.put("IntroduceLocalVariableWithNullCheckRefactoring", new IntroduceLocalVariableWithNullCheckRefactoring());
         // Add more refactorings as needed
     }
 
