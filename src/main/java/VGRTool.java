@@ -1,143 +1,167 @@
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.*;
-import javax.tools.*;
-
-import org.eclipse.jdt.core.*;
 import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jdt.core.JavaModelException;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.jface.text.Document;
+import org.eclipse.text.edits.TextEdit;
 
 public class VGRTool {
 
-public static void main(String[] args) throws IOException {
-    // Check if source file is provided
-    if (args.length < 1) {
-        System.out.println("Usage: java VGRTool <SourceFile.java> [Refactoring1 Refactoring2 ...]");
-        return;
-    }
-
-    String sourceFilePath = args[0];
-    String sourceCode = readFileToString(sourceFilePath);
-
-    // Collect refactoring names from command-line arguments
-    List<String> refactoringNames = new ArrayList<>();
-    if (args.length > 1) {
-        refactoringNames = Arrays.asList(args).subList(1, args.length);
-    } else {
-        System.out.println("No refactorings specified. No refactoring will be performed.");
-        return;
-    }
-
-    // Parse the source code into an AST
-    CompilationUnit cu = parse(sourceCode);
-
-    // Run the verifier on the original code
-    List<String> originalWarnings = runVerifier(sourceFilePath);
-
-    if (originalWarnings.isEmpty()) {
-        System.out.println("No warnings from the verifier. No refactoring needed.");
-        return;
-    } else {
-        System.out.println("Verifier Warnings:");
-        for (String warning : originalWarnings) {
-            System.out.println(warning);
+    public static void main(String[] args) {
+        if (args.length < 1) {
+            System.out.println("Usage: java VGRTool <sourceFilePath>");
+            System.exit(1);
         }
+
+        String sourceFilePath = args[0];
+        String sourceCode = readSourceFile(sourceFilePath);
+
+        // Step 1: Run the verifier and collect warnings
+        List<String> originalWarnings = runVerifier(sourceFilePath);
+
+        // Step 2: Parse the source code into an AST
+        CompilationUnit cu = parse(sourceCode);
+
+        // Step 3: Extract expressions that may be null
+        Set<Expression> expressionsPossiblyNull = extractNullableExpressions(originalWarnings, cu);
+
+        // Step 4: Initialize the refactoring engine with the expressionsPossiblyNull
+        List<String> refactoringNames = Arrays.asList("IntroduceLocalVariableWithNullCheck");
+        RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringNames, expressionsPossiblyNull);
+
+        // Step 5: Apply refactorings
+        String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, sourceCode);
+
+        // Step 6: Output the refactored code
+        System.out.println(refactoredSourceCode);
     }
 
-    try {
-        // Apply specified refactorings to eliminate warnings
-        RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringNames);
-        CompilationUnit refactoredCU = refactoringEngine.refactor(cu, originalWarnings);
-
-        // Generate refactored source code
-        String refactoredSource = refactoredCU.toString();
-
-        // Write refactored code to a new file
-        String refactoredFilePath = "Refactored" + new File(sourceFilePath).getName();
-        writeStringToFile(refactoredFilePath, refactoredSource);
-
-        // Run the verifier on the refactored code
-        List<String> refactoredWarnings = runVerifier(refactoredFilePath);
-
-        if (refactoredWarnings.isEmpty()) {
-            System.out.println("Refactoring successful. No warnings in refactored code.");
-            System.out.println("Refactored code written to " + refactoredFilePath);
-        } else {
-            System.out.println("Warnings still present after refactoring:");
-            for (String warning : refactoredWarnings) {
-                System.out.println(warning);
+    private static String readSourceFile(String filePath) {
+        StringBuilder sourceCode = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                sourceCode.append(line).append(System.lineSeparator());
             }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-    } catch (JavaModelException e) {
-        e.printStackTrace();
-        System.err.println("Error during refactoring: " + e.getMessage());
-        return;
-    }
-}
-
-    // Utility method to read a file into a string
-    private static String readFileToString(String filePath) throws IOException {
-        return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(filePath)));
+        return sourceCode.toString();
     }
 
-    // Utility method to write a string to a file
-    private static void writeStringToFile(String filePath, String content) throws IOException {
-        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath));
-        writer.write(content);
-        writer.close();
+    private static List<String> runVerifier(String sourceFilePath) {
+        // Placeholder for running the verifier (e.g., NullAway) and collecting warnings
+        // In a real implementation, you would invoke the verifier and collect its output
+        // For the purpose of this example, we'll simulate warnings
+        List<String> warnings = new ArrayList<>();
+        warnings.add("Warning at line 5: Possible null dereference of data.uri");
+        warnings.add("Warning at line 12: Possible null dereference of row.getCell(cellIndex)");
+        warnings.add("Warning at line 20: Possible null dereference of ex.getMessage()");
+        return warnings;
     }
 
-    // Method to parse source code into a CompilationUnit (AST)
-    static CompilationUnit parse(String source) {
-        ASTParser parser = ASTParser.newParser(AST.JLS17);
-        Map<String, String> options = JavaCore.getOptions();
-        options.put(JavaCore.COMPILER_SOURCE, "17");
-        parser.setCompilerOptions(options);
+    private static CompilationUnit parse(String source) {
+        ASTParser parser = ASTParser.newParser(AST.JLS8); // Adjust the JLS version as needed
         parser.setSource(source.toCharArray());
         parser.setKind(ASTParser.K_COMPILATION_UNIT);
         parser.setResolveBindings(true);
         parser.setBindingsRecovery(true);
 
+        // Set up classpath and sourcepath entries if needed
+        // For simplicity, we'll omit these in this example
+
         return (CompilationUnit) parser.createAST(null);
     }
 
-    // Method to run the verifier (Checker Framework's Nullness Checker)
-    static List<String> runVerifier(String sourceFilePath) throws IOException {
-        List<String> warnings = new ArrayList<>();
+    private static Set<Expression> extractNullableExpressions(List<String> warnings, CompilationUnit cu) {
+        Set<Expression> expressions = new HashSet<>();
+        for (String warning : warnings) {
+            // Extract the line number from the warning
+            int lineNumber = extractLineNumber(warning);
+            if (lineNumber != -1) {
+                ASTNode node = getNodeAtLine(cu, lineNumber);
+                if (node != null) {
+                    CollectNullableExpressionsVisitor visitor = new CollectNullableExpressionsVisitor();
+                    node.accept(visitor);
+                    expressions.addAll(visitor.getExpressions());
+                }
+            }
+        }
+        return expressions;
+    }
 
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            System.out.println("No Java compiler available. Make sure to run with JDK, not JRE.");
-            return warnings;
+    private static int extractLineNumber(String warning) {
+        // Assume the warning contains "at line X"
+        int lineNumber = -1;
+        String[] parts = warning.split("line ");
+        if (parts.length > 1) {
+            String linePart = parts[1];
+            String[] lineTokens = linePart.split("\\D+"); // Split by non-digit characters
+            if (lineTokens.length > 0) {
+                try {
+                    lineNumber = Integer.parseInt(lineTokens[0]);
+                } catch (NumberFormatException e) {
+                    // Ignore and return -1
+                }
+            }
+        }
+        return lineNumber;
+    }
+
+    private static ASTNode getNodeAtLine(CompilationUnit cu, int lineNumber) {
+        GetNodeAtLineVisitor visitor = new GetNodeAtLineVisitor(cu, lineNumber);
+        cu.accept(visitor);
+        return visitor.getNode();
+    }
+
+    // Visitor to find the ASTNode at a specific line number
+    static class GetNodeAtLineVisitor extends ASTVisitor {
+        private CompilationUnit cu;
+        private int targetLineNumber;
+        private ASTNode foundNode = null;
+
+        public GetNodeAtLineVisitor(CompilationUnit cu, int lineNumber) {
+            this.cu = cu;
+            this.targetLineNumber = lineNumber;
         }
 
-        // Set up diagnostic listener to capture compiler output
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-
-        // Prepare compilation units
-        StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, null, null);
-        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromStrings(Arrays.asList(sourceFilePath));
-
-        // Set up compilation options to include the Checker Framework
-        List<String> optionList = new ArrayList<>();
-        optionList.add("-processor");
-        optionList.add("org.checkerframework.checker.nullness.NullnessChecker");
-        optionList.add("-classpath");
-        optionList.add(System.getProperty("java.class.path"));
-
-        // Compile the file
-        JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, optionList, null, compilationUnits);
-        task.call();
-
-        // Process diagnostics to collect warnings
-        for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
-            if (diagnostic.getKind() == Diagnostic.Kind.WARNING || diagnostic.getKind() == Diagnostic.Kind.ERROR) {
-                String message = diagnostic.getMessage(null);
-                warnings.add("Line " + diagnostic.getLineNumber() + ": " + message);
+        @Override
+        public void preVisit(ASTNode node) {
+            if (foundNode != null) {
+                return;
+            }
+            int nodeLineNumber = cu.getLineNumber(node.getStartPosition());
+            if (nodeLineNumber == targetLineNumber) {
+                foundNode = node;
             }
         }
 
-        fileManager.close();
+        public ASTNode getNode() {
+            return foundNode;
+        }
+    }
 
-        return warnings;
+    // Helper class to collect nullable expressions from a node
+    static class CollectNullableExpressionsVisitor extends ASTVisitor {
+        private Set<Expression> expressions = new HashSet<>();
+
+        @Override
+        public boolean visit(MethodInvocation node) {
+            expressions.add(node);
+            return super.visit(node);
+        }
+
+        @Override
+        public boolean visit(FieldAccess node) {
+            expressions.add(node);
+            return super.visit(node);
+        }
+
+        public Set<Expression> getExpressions() {
+            return expressions;
+        }
     }
 }
+

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashSet;
+import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 public class IntroduceLocalVariableWithNullCheckRefactoring extends Refactoring {
 

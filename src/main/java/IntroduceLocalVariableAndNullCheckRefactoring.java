@@ -2,6 +2,7 @@ import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import java.util.*;
+import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 public class IntroduceLocalVariableAndNullCheckRefactoring extends Refactoring {
 

@@ -2,6 +2,7 @@ import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import java.util.Set;
+import java.util.List;
 
 class WrapWithCheckNotNullRefactoring extends Refactoring {
 

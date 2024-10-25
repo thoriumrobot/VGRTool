@@ -1,36 +1,26 @@
 import java.util.*;
 import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jface.text.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.text.edits.TextEdit;
 import org.eclipse.jface.text.Document;
-import org.eclipse.core.runtime.CoreException; // Import CoreException
-import org.eclipse.jdt.core.JavaModelException; // Import JavaModelException
+import org.eclipse.text.edits.TextEdit;
 
-class RefactoringEngine {
+public class RefactoringEngine {
 
     private List<Refactoring> refactorings;
+    private Set<Expression> expressionsPossiblyNull;
 
-    // Map of available refactorings
-    private static final Map<String, Refactoring> AVAILABLE_REFACTORINGS = new HashMap<>();
-
-    static {
-        AVAILABLE_REFACTORINGS.put("SimplifyNullCheck", new SimplifyNullCheckRefactoring());
-        AVAILABLE_REFACTORINGS.put("AddNullnessAnnotations", new AddNullnessAnnotationsRefactoring());
-        AVAILABLE_REFACTORINGS.put("NullabilityRefactoring", new NullabilityRefactoring());
-        AVAILABLE_REFACTORINGS.put("WrapWithCheckNotNullRefactoring", new WrapWithCheckNotNullRefactoring());
-        AVAILABLE_REFACTORINGS.put("AddNullCheckBeforeMethodCallRefactoring", new AddNullCheckBeforeMethodCallRefactoring());
-        AVAILABLE_REFACTORINGS.put("AddNullCheckBeforeDereferenceRefactoring", new AddNullCheckBeforeDereferenceRefactoring());
-        AVAILABLE_REFACTORINGS.put("IntroduceLocalVariableAndNullCheckRefactoring", new IntroduceLocalVariableAndNullCheckRefactoring());
-        AVAILABLE_REFACTORINGS.put("IntroduceLocalVariableWithNullCheckRefactoring", new IntroduceLocalVariableWithNullCheckRefactoring());
-        // Add more refactorings as needed
-    }
-
-    public RefactoringEngine(List<String> refactoringNames) {
+    public RefactoringEngine(List<String> refactoringNames, Set<Expression> expressionsPossiblyNull) {
+        this.expressionsPossiblyNull = expressionsPossiblyNull;
         refactorings = new ArrayList<>();
 
         for (String name : refactoringNames) {
-            Refactoring refactoring = AVAILABLE_REFACTORINGS.get(name);
+            Refactoring refactoring = null;
+            if (name.equals("IntroduceLocalVariableWithNullCheck")) {
+                refactoring = new IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull);
+            } else {
+                // Handle other refactorings if necessary
+            }
+
             if (refactoring != null) {
                 refactorings.add(refactoring);
             } else {
@@ -44,16 +34,11 @@ class RefactoringEngine {
         }
     }
 
-    public CompilationUnit refactor(CompilationUnit cu, List<String> warnings) throws JavaModelException {
+    public String applyRefactorings(CompilationUnit cu, String sourceCode) {
         AST ast = cu.getAST();
-
-        // Copy the original AST to avoid modifying it directly
         ASTRewrite rewriter = ASTRewrite.create(ast);
 
-        // Map warnings to AST nodes
-        Map<ASTNode, String> warningNodes = mapWarningsToNodes(cu, warnings);
-
-        // Apply refactorings near warnings
+        // Apply each refactoring to the AST
         for (Refactoring refactoring : refactorings) {
             cu.accept(new ASTVisitor() {
                 @Override
@@ -65,8 +50,8 @@ class RefactoringEngine {
             });
         }
 
-        // Apply the changes and return the modified CompilationUnit
-        Document document = new Document(cu.toString());
+        // Apply the rewrite changes to the source code
+        Document document = new Document(sourceCode);
         TextEdit edits = rewriter.rewriteAST(document, null);
         try {
             edits.apply(document);
@@ -74,49 +59,8 @@ class RefactoringEngine {
             e.printStackTrace();
         }
 
-        // Parse the modified source code into a new CompilationUnit
-        CompilationUnit refactoredCU = VGRTool.parse(document.get());
-        return refactoredCU;
-    }
-
-    // Method to map warnings to AST nodes
-private Map<ASTNode, String> mapWarningsToNodes(CompilationUnit cu, List<String> warnings) {
-    Map<ASTNode, String> warningNodes = new HashMap<>();
-
-    for (String warning : warnings) {
-        int lineNumber = extractLineNumber(warning);
-        if (lineNumber == -1) {
-            continue;
-        }
-
-        // Use the CompilationUnit's line number mapping
-        int position = cu.getPosition(lineNumber, 0);
-        ASTNode node = NodeFinder.perform(cu, position, 0);
-        if (node != null) {
-            warningNodes.put(node, warning);
-        }
-    }
-
-    return warningNodes;
-}
-
-    // Utility method to extract line number from warning string
-    private int extractLineNumber(String warning) {
-        try {
-            String[] parts = warning.split(":");
-            return Integer.parseInt(parts[0].replace("Line ", "").trim());
-        } catch (Exception e) {
-            return -1;
-        }
-    }
-
-    // Utility method to get AST node at a specific line number
-    private ASTNode getNodeAtLine(CompilationUnit cu, int lineNumber) {
-        try {
-            int position = cu.getPosition(lineNumber, 0);
-            return NodeFinder.perform(cu, position, 0);
-        } catch (Exception e) {
-            return null;
-        }
+        // Return the refactored source code
+        return document.get();
     }
 }
+

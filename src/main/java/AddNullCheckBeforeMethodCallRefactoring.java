@@ -3,6 +3,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import java.util.Set;
 import java.util.List;
+import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
 
 class AddNullCheckBeforeMethodCallRefactoring extends Refactoring {
 
