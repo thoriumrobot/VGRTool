@@ -12,7 +12,7 @@ repositories {
 
 dependencies {
     // Eclipse JDT Core
-    implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.30.0'
+    implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.32.0'
 
     // Eclipse Text
     implementation 'org.eclipse.platform:org.eclipse.text:3.12.0'

@@ -8,6 +8,8 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.example.utils.RefactoringUtils;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 
 /**
  * Simplifies redundant null checks in the code.
