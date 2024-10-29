@@ -1,13 +1,27 @@
-import java.util.*;
-import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jface.text.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTVisitor;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.NodeFinder;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.text.edits.TextEdit;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.Document;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.text.edits.TextEdit;
 import org.eclipse.core.runtime.CoreException; // Import CoreException
 import org.eclipse.jdt.core.JavaModelException; // Import JavaModelException
+import org.example.utils.RefactoringUtils;
 
-class RefactoringEngine {
+/**
+ * Engine to apply various refactorings to CompilationUnits.
+ */
+public class RefactoringEngine {
 
     private List<Refactoring> refactorings;
 

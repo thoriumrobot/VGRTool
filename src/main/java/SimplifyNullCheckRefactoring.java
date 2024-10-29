@@ -1,8 +1,18 @@
-import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import java.util.List;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.IfStatement;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import RefactoringUtils.*;
 
-class SimplifyNullCheckRefactoring extends Refactoring {
+/**
+ * Simplifies redundant null checks in the code.
+ */
+public class SimplifyNullCheckRefactoring extends Refactoring {
 
     @Override
     public boolean isApplicable(ASTNode node) {
@@ -43,27 +53,5 @@ class SimplifyNullCheckRefactoring extends Refactoring {
         // Remove the variable declaration
         rewriter.remove(varDecl.getParent(), null);
     }
-
-// Improved findVariableDeclaration method
-private VariableDeclarationFragment findVariableDeclaration(ASTNode node, String varName) {
-    ASTNode current = node;
-    while (current != null) {
-        if (current instanceof Block) {
-            Block block = (Block) current;
-            for (Statement stmt : (List<Statement>) block.statements()) {
-                if (stmt instanceof VariableDeclarationStatement) {
-                    VariableDeclarationStatement varStmt = (VariableDeclarationStatement) stmt;
-                    for (VariableDeclarationFragment frag : (List<VariableDeclarationFragment>) varStmt.fragments()) {
-                        if (frag.getName().getIdentifier().equals(varName)) {
-                            return frag;
-                        }
-                    }
-                }
-            }
-        }
-        current = current.getParent();
-    }
-    return null;
-}
 
 }

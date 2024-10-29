@@ -1,14 +1,34 @@
-import org.eclipse.jdt.core.dom.*;
+import java.util.HashSet;
+import java.util.Set;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ASTVisitor;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.FieldDeclaration;
+import org.eclipse.jdt.core.dom.IfStatement;
+import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.MethodDeclaration;
+import org.eclipse.jdt.core.dom.NullLiteral;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.TypeDeclaration;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import java.util.*;
+import RefactoringUtils.*;
 
-class NullabilityRefactoring extends Refactoring {
+/**
+ * Refactoring to add nullability checks to fields 
+ * and ensure safe access throughout the code.
+ */
+public class NullabilityRefactoring extends Refactoring {
 
     private Set<String> possiblyNullFields = new HashSet<>();
 
     @Override
     public boolean isApplicable(ASTNode node) {
-        // Apply this refactoring to CompilationUnits and MethodDeclarations
         return node instanceof CompilationUnit || node instanceof MethodDeclaration;
     }
 
@@ -76,26 +96,6 @@ class NullabilityRefactoring extends Refactoring {
                 insertNullCheck(node, rewriter);
             }
         }
-    }
-
-    private String getFieldName(ASTNode node) {
-        if (node instanceof FieldAccess) {
-            FieldAccess fieldAccess = (FieldAccess) node;
-            return fieldAccess.getName().getIdentifier();
-        } else if (node instanceof SimpleName) {
-            SimpleName simpleName = (SimpleName) node;
-
-            // Ensure it's a field access, not a local variable or method name
-            if (!simpleName.isDeclaration() && isField(simpleName)) {
-                return simpleName.getIdentifier();
-            }
-        }
-        return null;
-    }
-
-    private boolean isField(SimpleName simpleName) {
-        IBinding binding = simpleName.resolveBinding();
-        return binding instanceof IVariableBinding && ((IVariableBinding) binding).isField();
     }
 
     private boolean isGuardedByNullCheck(ASTNode node) {
