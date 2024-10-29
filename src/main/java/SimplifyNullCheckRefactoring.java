@@ -41,7 +41,7 @@ public class SimplifyNullCheckRefactoring extends Refactoring {
         String varName = conditionName.getIdentifier();
 
         // Find the variable declaration
-        VariableDeclarationFragment varDecl = findVariableDeclaration(ifStmt, varName);
+        VariableDeclarationFragment varDecl = RefactoringUtils.findVariableDeclaration(ifStmt, varName);
         if (varDecl == null) {
             return;
         }

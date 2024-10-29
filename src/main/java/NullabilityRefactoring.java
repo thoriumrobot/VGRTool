@@ -25,6 +25,11 @@ import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.Modifier;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.NullLiteral;
+import org.eclipse.jdt.core.dom.Type;
+import org.eclipse.jdt.core.dom.StringLiteral;
+import org.eclipse.jdt.core.dom.ThrowStatement;
+import org.eclipse.jdt.core.dom.ClassInstanceCreation;
+import org.eclipse.jdt.core.dom.CharacterLiteral;
 
 /**
  * Refactoring to add nullability checks to fields 
@@ -95,7 +100,7 @@ public class NullabilityRefactoring extends Refactoring {
     }
 
     private void handleFieldAccess(ASTNode node, ASTRewrite rewriter) {
-        String fieldName = getFieldName(node);
+        String fieldName = RefactoringUtils.getFieldName(node);
 
         if (fieldName != null && possiblyNullFields.contains(fieldName)) {
             // Check if the field access is already guarded by a null check
@@ -113,7 +118,7 @@ public class NullabilityRefactoring extends Refactoring {
                 IfStatement ifStmt = (IfStatement) parent;
                 Expression condition = ifStmt.getExpression();
 
-                if (isNullCheck(condition, getFieldName(node))) {
+                if (isNullCheck(condition, RefactoringUtils.getFieldName(node))) {
                     return true;
                 }
             } else if (parent instanceof MethodDeclaration || parent instanceof TypeDeclaration) {
@@ -146,7 +151,7 @@ public class NullabilityRefactoring extends Refactoring {
     private boolean isFieldReference(Expression expr, String fieldName) {
         if (expr instanceof SimpleName) {
             SimpleName simpleName = (SimpleName) expr;
-            return simpleName.getIdentifier().equals(fieldName) && isField(simpleName);
+            return simpleName.getIdentifier().equals(fieldName) && RefactoringUtils.isField(simpleName);
         } else if (expr instanceof FieldAccess) {
             FieldAccess fieldAccess = (FieldAccess) expr;
             return fieldAccess.getName().getIdentifier().equals(fieldName);

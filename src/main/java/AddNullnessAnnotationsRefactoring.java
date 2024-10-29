@@ -22,13 +22,13 @@ public class AddNullnessAnnotationsRefactoring extends Refactoring {
         if (node instanceof SingleVariableDeclaration) {
             SingleVariableDeclaration varDecl = (SingleVariableDeclaration) node;
             // Check if variable is missing nullness annotations
-            if (!hasNullnessAnnotation(varDecl.modifiers())) {
+            if (!RefactoringUtils.hasNullnessAnnotation(varDecl.modifiers())) {
                 return true;
             }
         }
         if (node instanceof VariableDeclarationStatement) {
             VariableDeclarationStatement varStmt = (VariableDeclarationStatement) node;
-            if (!hasNullnessAnnotation(varStmt.modifiers())) {
+            if (!RefactoringUtils.hasNullnessAnnotation(varStmt.modifiers())) {
                 return true;
             }
         }

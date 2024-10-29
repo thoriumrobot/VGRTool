@@ -16,7 +16,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.text.edits.TextEdit;
 import org.eclipse.core.runtime.CoreException; // Import CoreException
 import org.eclipse.jdt.core.JavaModelException; // Import JavaModelException
-import org.example.utils.RefactoringUtils;
+import org.example.utils.RefactoringUtils.*;
 
 /**
  * Engine to apply various refactorings to CompilationUnits.
