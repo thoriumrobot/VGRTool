@@ -9,7 +9,7 @@ import org.eclipse.jdt.core.dom.SingleVariableDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
-import RefactoringUtils.*;
+import org.example.utils.RefactoringUtils;
 
 /**
  * Adds @Nullable annotations to variables missing nullness annotations.

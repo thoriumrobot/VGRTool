@@ -7,7 +7,7 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import RefactoringUtils.*;
+import org.example.utils.RefactoringUtils;
 
 /**
  * Simplifies redundant null checks in the code.

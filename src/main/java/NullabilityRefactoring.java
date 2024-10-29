@@ -17,7 +17,7 @@ import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.TypeDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import RefactoringUtils.*;
+import org.example.utils.RefactoringUtils;
 
 /**
  * Refactoring to add nullability checks to fields 
