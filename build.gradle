@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id 'com.diffplug.spotless' version '6.21.0'
 }
 
 group 'com.example'
@@ -50,6 +51,19 @@ configurations.all {
             details.requested.name == 'org.eclipse.swt.${osgi.platform}') {
             details.useTarget group: 'org.eclipse.platform', name: 'org.eclipse.swt.gtk.linux.x86_64', version: details.requested.version
         }
+    }
+}
+
+spotless {
+    java {
+        target 'src/**/*.java'  // Specify which files to format
+        googleJavaFormat('1.15.0')  // Use Google's Java code style
+
+        // You can also add optional format rules
+        removeUnusedImports()
+        indentWithSpaces(4)  // Indentation with spaces
+        trimTrailingWhitespace()
+        endWithNewline()
     }
 }
 
