@@ -21,18 +21,18 @@ public class RefactoringEngine {
                 refactoring = new AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull);
             } else if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
                 refactoring = new AddNullCheckBeforeDereferenceRefactoring(expressionsPossiblyNull);
-            } else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
-                refactoring = new AddNullCheckBeforeMethodCallRefactoring(expressionsPossiblyNull);
+            /*} else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
+                refactoring = new AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull, expressionsPossiblyNull);*/
             } else if (name.equals("AddNullnessAnnotationsRefactoring")) {
-                refactoring = new AddNullnessAnnotationsRefactoring(expressionsPossiblyNull);
+                refactoring = new AddNullnessAnnotationsRefactoring();
             } else if (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) {
                 refactoring = new IntroduceLocalVariableAndNullCheckRefactoring(expressionsPossiblyNull);
             } else if (name.equals("IntroduceLocalVariableWithNullCheckRefactoring")) {
                 refactoring = new IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull);
             } else if (name.equals("NullabilityRefactoring")) {
-                refactoring = new NullabilityRefactoring(expressionsPossiblyNull);
+                refactoring = new NullabilityRefactoring();
             } else if (name.equals("SimplifyNullCheckRefactoring")) {
-                refactoring = new SimplifyNullCheckRefactoring(expressionsPossiblyNull);
+                refactoring = new SimplifyNullCheckRefactoring();
             } else {
                 System.err.println("Unknown refactoring: " + name);
             }

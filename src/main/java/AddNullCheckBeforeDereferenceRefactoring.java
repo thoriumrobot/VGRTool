@@ -47,7 +47,9 @@ class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
         // Original statement goes into the 'else' part
         Block elseBlock = ast.newBlock();
-        elseBlock.statements().add(ASTNode.copySubtree(ast, enclosingStatement));
+        @SuppressWarnings("unchecked") // Add to suppress specific warnings if needed
+        List<Statement> statements = elseBlock.statements();
+        statements.add((Statement) ASTNode.copySubtree(ast, enclosingStatement));
         ifStatement.setElseStatement(elseBlock);
 
         // Replace the original statement with the if statement
