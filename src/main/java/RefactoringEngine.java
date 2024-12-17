@@ -15,16 +15,30 @@ public class RefactoringEngine {
 
         for (String name : refactoringNames) {
             Refactoring refactoring = null;
-            if (name.equals("IntroduceLocalVariableWithNullCheck")) {
+            if (name.equals("WrapWithCheckNotNullRefactoring")) {
+                refactoring = new WrapWithCheckNotNullRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("AddNullChecksForNullableReferences")) {
+                refactoring = new AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
+                refactoring = new AddNullCheckBeforeDereferenceRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
+                refactoring = new AddNullCheckBeforeMethodCallRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("AddNullnessAnnotationsRefactoring")) {
+                refactoring = new AddNullnessAnnotationsRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) {
+                refactoring = new IntroduceLocalVariableAndNullCheckRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("IntroduceLocalVariableWithNullCheckRefactoring")) {
                 refactoring = new IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("NullabilityRefactoring")) {
+                refactoring = new NullabilityRefactoring(expressionsPossiblyNull);
+            } else if (name.equals("SimplifyNullCheckRefactoring")) {
+                refactoring = new SimplifyNullCheckRefactoring(expressionsPossiblyNull);
             } else {
-                // Handle other refactorings if necessary
+                System.err.println("Unknown refactoring: " + name);
             }
 
             if (refactoring != null) {
                 refactorings.add(refactoring);
-            } else {
-                System.err.println("Unknown refactoring: " + name);
             }
         }
 
@@ -38,7 +52,6 @@ public class RefactoringEngine {
         AST ast = cu.getAST();
         ASTRewrite rewriter = ASTRewrite.create(ast);
 
-        // Apply each refactoring to the AST
         for (Refactoring refactoring : refactorings) {
             cu.accept(new ASTVisitor() {
                 @Override
@@ -50,7 +63,6 @@ public class RefactoringEngine {
             });
         }
 
-        // Apply the rewrite changes to the source code
         Document document = new Document(sourceCode);
         TextEdit edits = rewriter.rewriteAST(document, null);
         try {
@@ -59,7 +71,6 @@ public class RefactoringEngine {
             e.printStackTrace();
         }
 
-        // Return the refactored source code
         return document.get();
     }
 }

@@ -28,7 +28,7 @@ public class VGRTool {
         Set<Expression> expressionsPossiblyNull = extractNullableExpressions(originalWarnings, cu);
 
         // Step 4: Initialize the refactoring engine with the expressionsPossiblyNull
-        List<String> refactoringNames = Arrays.asList("IntroduceLocalVariableWithNullCheck");
+        List<String> refactoringNames = Arrays.asList("WrapWithCheckNotNullRefactoring", "AddNullChecksForNullableReferences", "AddNullCheckBeforeDereferenceRefactoring", "AddNullCheckBeforeMethodCallRefactoring", "AddNullnessAnnotationsRefactoring", "IntroduceLocalVariableAndNullCheckRefactoring", "IntroduceLocalVariableWithNullCheckRefactoring", "NullabilityRefactoring", "SimplifyNullCheckRefactoring");
         RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringNames, expressionsPossiblyNull);
 
         // Step 5: Apply refactorings
