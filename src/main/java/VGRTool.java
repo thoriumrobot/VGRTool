@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.*;
 import java.util.*;
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -10,158 +12,98 @@ import org.eclipse.text.edits.TextEdit;
 public class VGRTool {
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.out.println("Usage: java VGRTool <sourceFilePath>");
+        if (args.length < 2) {
+            System.out.println("Usage: java VGRTool <sourceDirPath> <refactoringModule>");
+            System.out.println("Available Modules:");
+            System.out.println(" - WrapWithCheckNotNullRefactoring");
+            System.out.println(" - AddNullChecksForNullableReferences");
+            System.out.println(" - AddNullCheckBeforeDereferenceRefactoring");
+            System.out.println(" - IntroduceLocalVariableAndNullCheckRefactoring");
+            System.out.println(" - IntroduceLocalVariableWithNullCheckRefactoring");
+            System.out.println(" - SimplifyNullCheckRefactoring");
             System.exit(1);
         }
 
-        String sourceFilePath = args[0];
-        String sourceCode = readSourceFile(sourceFilePath);
+        String targetDir = args[0];
+        String refactoringModule = args[1];
 
-        // Step 1: Run the verifier and collect warnings
-        List<String> originalWarnings = runVerifier(sourceFilePath);
+        System.out.println("Processing directory: " + targetDir);
+        System.out.println("Selected Refactoring Module: " + refactoringModule);
 
-        // Step 2: Parse the source code into an AST
-        CompilationUnit cu = parse(sourceCode);
+        try {
+            // Step 1: Collect all Java files in the target directory
+            List<File> javaFiles = findJavaFiles(targetDir);
 
-        // Step 3: Extract expressions that may be null
-        Set<Expression> expressionsPossiblyNull = extractNullableExpressions(originalWarnings, cu);
-
-        // Step 4: Initialize the refactoring engine with the expressionsPossiblyNull
-        List<String> refactoringNames = Arrays.asList("WrapWithCheckNotNullRefactoring", "AddNullChecksForNullableReferences", "AddNullCheckBeforeDereferenceRefactoring", "AddNullCheckBeforeMethodCallRefactoring", "AddNullnessAnnotationsRefactoring", "IntroduceLocalVariableAndNullCheckRefactoring", "IntroduceLocalVariableWithNullCheckRefactoring", "NullabilityRefactoring", "SimplifyNullCheckRefactoring");
-        RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringNames, expressionsPossiblyNull);
-
-        // Step 5: Apply refactorings
-        String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, sourceCode);
-
-        // Step 6: Output the refactored code
-        System.out.println(refactoredSourceCode);
-    }
-
-    private static String readSourceFile(String filePath) {
-        StringBuilder sourceCode = new StringBuilder();
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                sourceCode.append(line).append(System.lineSeparator());
+            // Step 2: Process each Java file using the selected refactoring module
+            for (File file : javaFiles) {
+                System.out.println("Processing file: " + file.getPath());
+                processFile(file, refactoringModule);
             }
-        } catch (IOException e) {
+
+            System.out.println("Refactoring completed successfully!");
+        } catch (Exception e) {
             e.printStackTrace();
         }
-        return sourceCode.toString();
     }
 
-    private static List<String> runVerifier(String sourceFilePath) {
-        // Placeholder for running the verifier (e.g., NullAway) and collecting warnings
-        // In a real implementation, you would invoke the verifier and collect its output
-        // For the purpose of this example, we'll simulate warnings
-        List<String> warnings = new ArrayList<>();
-        warnings.add("Warning at line 5: Possible null dereference of data.uri");
-        warnings.add("Warning at line 12: Possible null dereference of row.getCell(cellIndex)");
-        warnings.add("Warning at line 20: Possible null dereference of ex.getMessage()");
-        return warnings;
+    private static List<File> findJavaFiles(String directory) throws IOException {
+        List<File> javaFiles = new ArrayList<>();
+        Files.walk(Paths.get(directory))
+             .filter(path -> path.toString().endsWith(".java"))
+             .forEach(path -> javaFiles.add(path.toFile()));
+        return javaFiles;
     }
 
-    private static CompilationUnit parse(String source) {
-        ASTParser parser = ASTParser.newParser(AST.JLS8); // Adjust the JLS version as needed
-        parser.setSource(source.toCharArray());
-        parser.setKind(ASTParser.K_COMPILATION_UNIT);
-        parser.setResolveBindings(true);
-        parser.setBindingsRecovery(true);
+    private static void processFile(File file, String refactoringModule) {
+        try {
+            // Step 3: Read the file content
+            String content = Files.readString(file.toPath());
+            Document document = new Document(content);
 
-        // Set up classpath and sourcepath entries if needed
-        // For simplicity, we'll omit these in this example
+            // Step 4: Parse the content into an AST
+            ASTParser parser = ASTParser.newParser(AST.JLS15); // Use Java 17
+            parser.setSource(content.toCharArray());
+            CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-        return (CompilationUnit) parser.createAST(null);
-    }
+            // Step 5: Extract nullable expressions
+            Set<Expression> nullableExpressions = extractExpressionsPossiblyNull(cu);
 
-    private static Set<Expression> extractNullableExpressions(List<String> warnings, CompilationUnit cu) {
-        Set<Expression> expressions = new HashSet<>();
-        for (String warning : warnings) {
-            // Extract the line number from the warning
-            int lineNumber = extractLineNumber(warning);
-            if (lineNumber != -1) {
-                ASTNode node = getNodeAtLine(cu, lineNumber);
-                if (node != null) {
-                    CollectNullableExpressionsVisitor visitor = new CollectNullableExpressionsVisitor();
-                    node.accept(visitor);
-                    expressions.addAll(visitor.getExpressions());
-                }
-            }
+            // Step 6: Initialize RefactoringEngine with the selected module
+            List<String> selectedModules = Collections.singletonList(refactoringModule);
+            RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules, nullableExpressions);
+
+            // Step 7: Apply refactorings using RefactoringEngine
+            String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);
+
+            // Step 8: Write the refactored code back to the file
+            Files.writeString(file.toPath(), refactoredSourceCode);
+            System.out.println("Refactored file saved: " + file.getPath());
+
+        } catch (Exception e) {
+            System.err.println("Error processing file: " + file.getPath());
+            e.printStackTrace();
         }
+    }
+
+    private static Set<Expression> extractExpressionsPossiblyNull(CompilationUnit cu) {
+        Set<Expression> expressions = new HashSet<>();
+        cu.accept(new ASTVisitor() {
+            @Override
+            public boolean visit(MethodInvocation node) {
+                if (node.getExpression() != null) {
+                    expressions.add(node.getExpression());
+                }
+                return super.visit(node);
+            }
+
+            @Override
+            public boolean visit(FieldAccess node) {
+                if (node.getExpression() != null) {
+                    expressions.add(node.getExpression());
+                }
+                return super.visit(node);
+            }
+        });
         return expressions;
     }
-
-    private static int extractLineNumber(String warning) {
-        // Assume the warning contains "at line X"
-        int lineNumber = -1;
-        String[] parts = warning.split("line ");
-        if (parts.length > 1) {
-            String linePart = parts[1];
-            String[] lineTokens = linePart.split("\\D+"); // Split by non-digit characters
-            if (lineTokens.length > 0) {
-                try {
-                    lineNumber = Integer.parseInt(lineTokens[0]);
-                } catch (NumberFormatException e) {
-                    // Ignore and return -1
-                }
-            }
-        }
-        return lineNumber;
-    }
-
-    private static ASTNode getNodeAtLine(CompilationUnit cu, int lineNumber) {
-        GetNodeAtLineVisitor visitor = new GetNodeAtLineVisitor(cu, lineNumber);
-        cu.accept(visitor);
-        return visitor.getNode();
-    }
-
-    // Visitor to find the ASTNode at a specific line number
-    static class GetNodeAtLineVisitor extends ASTVisitor {
-        private CompilationUnit cu;
-        private int targetLineNumber;
-        private ASTNode foundNode = null;
-
-        public GetNodeAtLineVisitor(CompilationUnit cu, int lineNumber) {
-            this.cu = cu;
-            this.targetLineNumber = lineNumber;
-        }
-
-        @Override
-        public void preVisit(ASTNode node) {
-            if (foundNode != null) {
-                return;
-            }
-            int nodeLineNumber = cu.getLineNumber(node.getStartPosition());
-            if (nodeLineNumber == targetLineNumber) {
-                foundNode = node;
-            }
-        }
-
-        public ASTNode getNode() {
-            return foundNode;
-        }
-    }
-
-    // Helper class to collect nullable expressions from a node
-    static class CollectNullableExpressionsVisitor extends ASTVisitor {
-        private Set<Expression> expressions = new HashSet<>();
-
-        @Override
-        public boolean visit(MethodInvocation node) {
-            expressions.add(node);
-            return super.visit(node);
-        }
-
-        @Override
-        public boolean visit(FieldAccess node) {
-            expressions.add(node);
-            return super.visit(node);
-        }
-
-        public Set<Expression> getExpressions() {
-            return expressions;
-        }
-    }
 }
-
