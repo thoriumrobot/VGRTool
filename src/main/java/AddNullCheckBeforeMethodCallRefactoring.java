@@ -120,14 +120,15 @@ class AddNullCheckBeforeMethodCallRefactoring extends Refactoring {
         return (Statement) parent;
     }
 
-    private List<Expression> getArguments(ASTNode invocationNode) {
-        if (invocationNode instanceof MethodInvocation) {
-            @SuppressWarnings("unchecked")
-            return (List<Expression>) ((MethodInvocation) invocationNode).arguments();
-        } else if (invocationNode instanceof ClassInstanceCreation) {
-            return (List<Expression>) ((ClassInstanceCreation) invocationNode).arguments();
-        }
-        return null;
+@SuppressWarnings("unchecked")
+private List<Expression> getArguments(ASTNode invocationNode) {
+    if (invocationNode instanceof MethodInvocation) {
+        return (List<Expression>) ((MethodInvocation) invocationNode).arguments();
+    } else if (invocationNode instanceof ClassInstanceCreation) {
+        return (List<Expression>) ((ClassInstanceCreation) invocationNode).arguments();
     }
+    return Collections.emptyList();
+}
+
 }
 
