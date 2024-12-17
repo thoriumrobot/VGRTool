@@ -1,6 +1,7 @@
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-
+import java.util.List;
+import java.util.Collections;
 import java.util.Set;
 
 class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {

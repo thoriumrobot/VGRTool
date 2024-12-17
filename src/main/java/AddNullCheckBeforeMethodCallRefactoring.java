@@ -1,6 +1,6 @@
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-
+import java.util.Collections;
 import java.util.Set;
 import java.util.List;
 import org.eclipse.jdt.core.dom.rewrite.ListRewrite;
