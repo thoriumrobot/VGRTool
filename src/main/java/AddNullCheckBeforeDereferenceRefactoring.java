@@ -5,45 +5,30 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A refactoring that inserts a direct null-check (e.g. {@code Objects.requireNonNull(expr)})
- * immediately before a flagged dereference, but ONLY IF an "indirect" check is already
- * present in the enclosing scope.
+ * A refactoring that adds {@code Objects.requireNonNull(expr)} before a flagged
+ * dereference, but ONLY IF an "indirect" condition or assertion in the enclosing
+ * scope guarantees {@code expr} is non-null.
  *
  * <p>
- * For example, if we see:
- *
- * <pre>{@code
- * if (handlerType != null) {
- *     handlerMethod.getBean(); // Potential NullAway warning
- * }
- * }</pre>
- *
- * we add:
- *
- * <pre>{@code
- * if (handlerType != null) {
- *     Objects.requireNonNull(handlerMethod);
- *     handlerMethod.getBean();
- * }
- * }</pre>
- *
- * This clarifies for static analyzers that "handlerMethod" is also guaranteed non-null in
- * that code path without altering real runtime behavior.
+ * "Indirect" means the condition is not the literal check "expr != null".
+ * For instance:
+ * <ul>
+ *   <li>{@code if (someOtherVar != null) {... expr.foo() ...}}</li>
+ *   <li>{@code Assert.state(someOtherVar != null, "...") // ensures expr is non-null}</li>
+ * </ul>
  * </p>
  *
  * <p>
- * If NO indirect check is present (i.e. no {@code if (expr != null)} or
- * {@code Assert.state(expr != null, ...)}) in scope, we do NOTHING. This avoids
- * overly aggressive transformations like:
+ * If the enclosing code is a <em>direct</em> check of {@code expr != null}, we skip
+ * insertion to avoid meaningless duplication. For instance:
  *
  * <pre>{@code
- * if (this != null) {
- *     this.expectedSize = expectedSize;
- * } else {
- *     throw new NullPointerException();
- * }
+ *   if (this.aspectJAdvisorsBuilder != null) {
+ *       // do something with this.aspectJAdvisorsBuilder
+ *   }
  * }</pre>
  *
+ * remains unchanged, because it already explicitly checks {@code this.aspectJAdvisorsBuilder != null}.
  * </p>
  */
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
@@ -51,17 +36,16 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     private final Set<Expression> expressionsPossiblyNull;
 
     /**
-     * @param expressionsPossiblyNull Set of expressions flagged by the verifier as potentially null.
+     * @param expressionsPossiblyNull the set of expressions flagged by the verifier
+     *                                as potentially null (from your collected warnings).
      */
     public AddNullCheckBeforeDereferenceRefactoring(Set<Expression> expressionsPossiblyNull) {
         this.expressionsPossiblyNull = expressionsPossiblyNull;
     }
 
     /**
-     * Determines if we might apply this refactoring to the given AST node.
-     * We only consider:
-     *   1) A node that is a dereference (MethodInvocation, FieldAccess, QualifiedName)
-     *   2) The qualifier is in {@code expressionsPossiblyNull}.
+     * Checks if the node is a dereference (MethodInvocation, FieldAccess, or QualifiedName)
+     * and if the qualifier is flagged by your verifier as possibly null.
      */
     @Override
     public boolean isApplicable(ASTNode node) {
@@ -76,12 +60,13 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     }
 
     /**
-     * Applies the refactoring:
+     * Applies the refactoring. We do the following:
      * <ul>
-     *   <li>If an indirect check is already present for the qualifier, insert
-     *       <code>Objects.requireNonNull(qualifier);</code> just before the original
-     *       dereference statement.</li>
-     *   <li>If NO indirect check is found, do nothing (no-op).</li>
+     *   <li>Find the enclosing statement where the dereference occurs.</li>
+     *   <li>Check if there's an <em>indirect</em> condition guaranteeing non-null
+     *       (i.e., NOT "expr != null").</li>
+     *   <li>If found, insert {@code Objects.requireNonNull(expr);} before the statement.</li>
+     *   <li>If no <em>indirect</em> check is found, do nothing (no-op).</li>
      * </ul>
      */
     @Override
@@ -91,21 +76,21 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
             return;
         }
 
-        // Get the statement in which the dereference occurs
         Statement enclosingStatement = getEnclosingStatement(node);
         if (enclosingStatement == null) {
             return;
         }
 
+        // Only proceed if there's an "indirect" guarantee that expr != null.
         boolean hasIndirectCheck = hasEnclosingIndirectCheck(qualifier, node);
         if (!hasIndirectCheck) {
-            // The user explicitly wants only direct checks in code already guaranteed non-null.
-            // If no indirect check is found, we skip the transformation entirely.
+            // If the check is direct or absent, do nothing.
             return;
         }
 
-        // If an indirect check is found, insert a direct check before the statement:
-        //     Objects.requireNonNull(expr);
+        // Insert a direct check:
+        //    Objects.requireNonNull(expr);
+        // Right before the original statement.
         AST ast = node.getAST();
 
         MethodInvocation requireNonNullCall = ast.newMethodInvocation();
@@ -115,22 +100,22 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
         ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
 
-        // Create a new Block that has the direct check + the original statement
+        // Build a new block with the direct check + the original statement
         Block newBlock = ast.newBlock();
         newBlock.statements().add(requireNonNullStmt);
         newBlock.statements().add(ASTNode.copySubtree(ast, enclosingStatement));
 
-        // Replace the original statement with our block
+        // Replace the old statement
         rewriter.replace(enclosingStatement, newBlock, null);
     }
 
-    /* ==================== Helper Methods ===================== */
+    /* ====================== Helper Methods ====================== */
 
     /**
-     * Returns the "qualifier" of a dereference:
-     *   - For MethodInvocation => .getExpression()
-     *   - For FieldAccess => .getExpression()
-     *   - For QualifiedName => .getQualifier()
+     * Returns the AST "qualifier" for a dereference node:
+     *   - MethodInvocation => node.getExpression()
+     *   - FieldAccess => node.getExpression()
+     *   - QualifiedName => node.getQualifier()
      */
     private Expression getQualifier(ASTNode node) {
         if (node instanceof MethodInvocation) {
@@ -146,7 +131,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     }
 
     /**
-     * Gets the nearest enclosing Statement so we can insert code right before it.
+     * Climbs up the AST until we find the nearest Statement that encloses 'node'.
      */
     private Statement getEnclosingStatement(ASTNode node) {
         ASTNode current = node;
@@ -157,18 +142,29 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     }
 
     /**
-     * Checks if an "indirect" null-check for 'expr' exists in the enclosing scope. That is,
-     * some condition ensures 'expr' is non-null. For instance:
-     *   if (expr != null) { ... expr.foo() ... }
-     * or
-     *   Assert.state(expr != null, "message");
+     * Determines whether there's an *indirect* check guaranteeing 'expr' is non-null.
+     *
+     * <p>An <em>indirect</em> check is something like:
+     * <pre>{@code
+     * if (someOtherVar != null) {
+     *     // => expr is guaranteed non-null
+     * }
+     * Assert.state(someOtherVar != null, "=> expr is non-null");
+     * }</pre>
+     *
+     * but specifically NOT a direct check "if (expr != null)" or
+     * "Assert.state(expr != null, ...)" for the same expression.
      */
     private boolean hasEnclosingIndirectCheck(Expression expr, ASTNode node) {
         ASTNode current = node.getParent();
+
+        // We consider 'expr.toString()' to identify the textual representation of the variable.
+        // e.g. "this.aspectJAdvisorsBuilder", "handlerMethod", etc.
         String exprString = expr.toString();
 
         while (current != null) {
-            // if (expr != null) { ... }
+
+            // CASE A: if (someCond != null) { ... }
             if (current instanceof IfStatement) {
                 IfStatement ifStmt = (IfStatement) current;
                 Expression condition = ifStmt.getExpression();
@@ -177,29 +173,32 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
                     if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
                         String left = infix.getLeftOperand().toString();
                         String right = infix.getRightOperand().toString();
-                        // Match "expr != null" or "null != expr"
-                        if ((left.equals(exprString) && "null".equals(right))
-                                || ("null".equals(left) && right.equals(exprString))) {
-                            return true;
+
+                        // If the condition is "someCond != null" or "null != someCond", and
+                        // 'someCond' is NOT the same as 'exprString', we consider it an *indirect* check.
+                        if (isNotNullCheckOfDifferentVar(left, right, exprString)) {
+                            return true; 
                         }
                     }
                 }
             }
-            // Assert.state(expr != null, "...")
+
+            // CASE B: Assert.state(someCond != null, "...")
             if (current instanceof ExpressionStatement) {
-                Expression statementExpr = ((ExpressionStatement) current).getExpression();
-                if (statementExpr instanceof MethodInvocation) {
-                    MethodInvocation mi = (MethodInvocation) statementExpr;
-                    if ("state".equals(mi.getName().toString()) && mi.arguments().size() > 0) {
+                Expression stmtExpr = ((ExpressionStatement) current).getExpression();
+                if (stmtExpr instanceof MethodInvocation) {
+                    MethodInvocation mi = (MethodInvocation) stmtExpr;
+                    // Looking specifically for "Assert.state(...)"
+                    if ("state".equals(mi.getName().getIdentifier()) && mi.arguments().size() > 0) {
                         Expression firstArg = (Expression) mi.arguments().get(0);
-                        // Looking for something like: Assert.state(expr != null, "...")
                         if (firstArg instanceof InfixExpression) {
                             InfixExpression infix = (InfixExpression) firstArg;
                             if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
                                 String left = infix.getLeftOperand().toString();
                                 String right = infix.getRightOperand().toString();
-                                if ((left.equals(exprString) && "null".equals(right))
-                                        || ("null".equals(left) && right.equals(exprString))) {
+
+                                // If "someCond != null" but not literally "expr != null"
+                                if (isNotNullCheckOfDifferentVar(left, right, exprString)) {
                                     return true;
                                 }
                             }
@@ -209,6 +208,29 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
             }
 
             current = current.getParent();
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the condition is "someVar != null" (or "null != someVar")
+     * where "someVar" is NOT the same text as exprString.
+     *
+     * i.e., if we are checking a *different* variable than 'exprString'.
+     */
+    private boolean isNotNullCheckOfDifferentVar(String left, String right, String exprString) {
+        // Check if either side is "null" and the other side is *someVar* that != exprString
+        boolean leftIsNull = "null".equals(left);
+        boolean rightIsNull = "null".equals(right);
+
+        // If left is null => right is the variable,
+        // If right is null => left is the variable.
+        // We only say "true" if the variable is not the same as exprString.
+        if (leftIsNull && !right.equals(exprString)) {
+            return true;
+        }
+        if (rightIsNull && !left.equals(exprString)) {
+            return true;
         }
         return false;
     }
