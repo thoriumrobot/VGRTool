@@ -143,7 +143,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
                 }
                 // For sentinel numeric checks (pos = rawValue != null ? rawValue.indexOf(...) : -1),
                 // you can also store the bridging "pos => rawValue" means "pos != -1 => rawValue != null"
-                // if you want. (Not shown in this base version.)
+                // if you want.
             }
 
             private void handleCondition(String assignedVar, Expression condition) {
