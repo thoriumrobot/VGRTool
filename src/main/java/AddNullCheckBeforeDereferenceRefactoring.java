@@ -1,160 +1,339 @@
 import org.eclipse.jdt.core.dom.*;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
- * A refactoring that adds {@code Objects.requireNonNull(expr)} before a flagged
- * dereference, but ONLY IF an "indirect" condition in the enclosing scope
- * guarantees {@code expr} is non-null.
+ * A refactoring that inserts direct null checks (via Objects.requireNonNull)
+ * where a *different* variable's non-null check implies the current variable
+ * is also non-null. We skip scenarios where the same variable is checked directly,
+ * because we only want the advanced pattern:
  *
- * "Indirect" means the condition is not the literal check "expr != null".
- * 
- * If there's already a direct check (e.g., "expr != null") in scope, we skip.
+ *  Example:
+ *     handlerType = (handlerMethod != null ? handlerMethod.getBeanType() : null);
+ *     if (handlerType != null) {
+ *         // => handlerMethod != null
+ *         // Insert: Objects.requireNonNull(handlerMethod);
+ *         handlerMethod.getBean();
+ *     }
  *
- * We also skip:
- *   - 'this' references
- *   - references inside lambda expressions
- *   - references to classes (Class<?> or static utility classes)
- *   - references to known imported/external objects if desired
+ * This helps a nullability inference tool see the direct null check for 'handlerMethod'
+ * in the block, even though the code only checks 'handlerType != null'.
  *
- * This refactoring should preserve runtime semantics exactly:
- * we only insert direct "requireNonNull(expr);" where an indirect check
- * already ensures it's non-null, so there's no behavior change at runtime.
+ * Internally, we:
+ *  1) Build a map of "bridgeVar => realVar", meaning "bridgeVar != null implies realVar != null".
+ *  2) For each dereference (or return) of realVar flagged as possibly null, we see if we're inside
+ *     `if (bridgeVar != null)` or an equivalent. If so, we insert `Objects.requireNonNull(realVar)`.
+ *  3) We skip the trivial scenario "if (realVar != null) => realVar" by checking for a direct textual match
+ *     on the same variable and ignoring it.
+ *
+ * For sentinel checks (e.g., int pos = rawValue != null ? rawValue.indexOf(',') : -1),
+ * you'd extend the logic to treat `pos != -1` => `rawValue != null`. The demonstration below
+ * has placeholders for that approach.
  */
-public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
+public class AddNullChecksForNullableReferencesRefactoring extends Refactoring {
 
+    /**
+     * The set of expressions flagged by your verifier as potentially null.
+     * This is passed in by your RefactoringEngine, based on the AST scan of warnings, etc.
+     */
     private final Set<Expression> expressionsPossiblyNull;
 
     /**
-     * @param expressionsPossiblyNull the set of expressions flagged by the verifier
-     *                                as potentially null (from your collected warnings).
+     * This map records relationships of the form:
+     *   "bridgeVar => realVar"
+     * meaning "bridgeVar != null" implies "realVar != null".
+     *
+     * Example:  handlerType => handlerMethod
      */
-    public AddNullCheckBeforeDereferenceRefactoring(Set<Expression> expressionsPossiblyNull) {
+    private final Map<String, String> impliesMap;
+
+    public AddNullChecksForNullableReferencesRefactoring(Set<Expression> expressionsPossiblyNull) {
         this.expressionsPossiblyNull = expressionsPossiblyNull;
+        this.impliesMap = new HashMap<>();
     }
 
     /**
-     * Checks if the node is a dereference (MethodInvocation, FieldAccess, or QualifiedName)
-     * and if the qualifier is flagged by your verifier as possibly null.
-     * 
-     * Also skips:
-     *   - 'this' references
-     *   - references inside a lambda function
-     *   - references that are typed as Class<?>
-     *   - references to static or utility classes
+     * We consider a node "applicable" if it's the kind of node where we might insert
+     * a direct null check: a dereference (MethodInvocation, FieldAccess, QualifiedName)
+     * or a ReturnStatement that returns a variable flagged as null. We then do more
+     * specific checks in apply().
      */
     @Override
     public boolean isApplicable(ASTNode node) {
-        // 1. Must be a node type that dereferences something
-        if (!(node instanceof MethodInvocation
+        if (node instanceof MethodInvocation
                 || node instanceof FieldAccess
-                || node instanceof QualifiedName)) {
-            return false;
+                || node instanceof QualifiedName
+                || node instanceof ReturnStatement) {
+            return true;
         }
-
-        Expression qualifier = getQualifier(node);
-        if (qualifier == null) {
-            return false;  // no qualifier => no dereference
-        }
-
-        // 2. Skip if the qualifier is 'this' (or ThisExpression).
-        if (isThisReference(qualifier)) {
-            return false;
-        }
-
-        // 3. Skip if the expression is inside a lambda function body.
-        if (isInsideLambda(node)) {
-            return false;
-        }
-
-        // NEW: 4. Skip if the qualifier's type is a Class<?> or a known utility class
-        //    => never check classes or static references for nullness.
-        if (isClassOrStaticReference(qualifier)) {
-            return false;
-        }
-
-        // 5. Check if the qualifier is flagged as possibly null by the verifier.
-        if (!expressionsPossiblyNull.contains(qualifier)) {
-            return false;
-        }
-
-        // If we pass all above checks, the node is a dereference
-        // with a qualifier flagged as possibly null. isApplicable => true.
-        return true;
+        return false;
     }
 
     /**
-     * Applies the refactoring. We do the following:
-     *   - Find the enclosing statement.
-     *   - Check if there's an <em>indirect</em> condition guaranteeing non-null,
-     *     but no direct check "expr != null".
-     *   - Insert {@code Objects.requireNonNull(expr);} if these conditions hold.
-     *   - Otherwise, do nothing (no-op).
+     * The main logic. We:
+     *  1) Build up the "impliesMap" by scanning the entire CompilationUnit for patterns like:
+     *       -   varB = (varA != null ? someNonNullExpression : null)
+     *       -   varB = (varA != null && someOtherCondition)
+     *  2) If the node is a dereference or return, see if it's inside "if (varB != null)" where
+     *     "varB => realVar" from the map. If so, we insert `Objects.requireNonNull(realVar)`.
+     *  3) Skip if the code directly checks "realVar != null".
      */
     @Override
     public void apply(ASTNode node, ASTRewrite rewriter) {
-        Expression qualifier = getQualifier(node);
-        if (qualifier == null) {
+        // 1) Build the impliesMap for the entire compilation unit (CU)
+        CompilationUnit cu = getCompilationUnit(node);
+        if (cu == null) {
             return;
         }
+        buildImplicationsMap(cu);
 
-        Statement enclosingStatement = getEnclosingStatement(node);
-        if (enclosingStatement == null) {
-            return;
+        // 2) Depending on the node type, handle the logic
+        if (node instanceof MethodInvocation
+                || node instanceof FieldAccess
+                || node instanceof QualifiedName) {
+
+            // This is a dereference node
+            Expression qualifier = getQualifier(node);
+            if (qualifier != null) {
+                handleDereferenceCase(qualifier, node, rewriter);
+            }
         }
-
-        // Evaluate direct vs. indirect checks in the AST above.
-        boolean hasDirectCheckForSameVar = hasEnclosingDirectCheck(qualifier, node);
-        boolean hasIndirectCheckForDiffVar = hasEnclosingIndirectCheck(qualifier, node);
-
-        // We only insert requireNonNull if there's an indirect guarantee
-        // for this expression but no direct check for the same var.
-        if (!hasDirectCheckForSameVar && hasIndirectCheckForDiffVar) {
-            AST ast = node.getAST();
-
-            // Build: Objects.requireNonNull(qualifier);
-            MethodInvocation requireNonNullCall = ast.newMethodInvocation();
-            requireNonNullCall.setExpression(ast.newSimpleName("Objects"));
-            requireNonNullCall.setName(ast.newSimpleName("requireNonNull"));
-            requireNonNullCall.arguments().add(ASTNode.copySubtree(ast, qualifier));
-
-            ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
-
-            // Create a block that contains our new statement + the old statement
-            Block newBlock = ast.newBlock();
-            newBlock.statements().add(requireNonNullStmt);
-            newBlock.statements().add(ASTNode.copySubtree(ast, enclosingStatement));
-
-            // Replace the old single statement with the new block
-            rewriter.replace(enclosingStatement, newBlock, null);
+        else if (node instanceof ReturnStatement) {
+            // Possibly handle a return statement: if it's returning a var flagged null,
+            // and we see a bridging condition that implies that var is non-null,
+            // we insert a direct check before the return.
+            ReturnStatement rs = (ReturnStatement) node;
+            if (rs.getExpression() != null) {
+                handleReturnCase(rs.getExpression(), rs, rewriter);
+            }
         }
     }
 
-    /* ====================== Helper Methods ====================== */
+    /* ===========================================================
+       PHASE 1:  Build 'impliesMap' for advanced indirect checks
+     =========================================================== */
 
     /**
-     * Returns the AST "qualifier" for a dereference node:
-     *   - MethodInvocation => node.getExpression()
-     *   - FieldAccess => node.getExpression()
-     *   - QualifiedName => node.getQualifier()
+     * Scans the entire CompilationUnit for assignment or declaration patterns like:
+     *   varB = (varA != null ? someExpression : null);
+     * or
+     *   varB = (varA != null && somethingElse);
+     * which implies "if varB != null => varA != null".
+     */
+    @SuppressWarnings("unchecked")
+    private void buildImplicationsMap(CompilationUnit cu) {
+        cu.accept(new ASTVisitor() {
+
+            @Override
+            public boolean visit(VariableDeclarationStatement node) {
+                // e.g. "Class<?> handlerType = (handlerMethod != null ? handlerMethod.getBeanType() : null);"
+                for (Object fragObj : node.fragments()) {
+                    if (fragObj instanceof VariableDeclarationFragment) {
+                        VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
+                        Expression init = frag.getInitializer();
+                        if (init != null) {
+                            String assignedVar = frag.getName().getIdentifier();
+                            handleInitializer(assignedVar, init);
+                        }
+                    }
+                }
+                return super.visit(node);
+            }
+
+            @Override
+            public boolean visit(VariableDeclarationExpression node) {
+                // For expressions in for-loops, catch same pattern
+                for (Object fragObj : node.fragments()) {
+                    if (fragObj instanceof VariableDeclarationFragment) {
+                        VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
+                        Expression init = frag.getInitializer();
+                        if (init != null) {
+                            String assignedVar = frag.getName().getIdentifier();
+                            handleInitializer(assignedVar, init);
+                        }
+                    }
+                }
+                return super.visit(node);
+            }
+
+            @Override
+            public boolean visit(Assignment node) {
+                // e.g. "handlerType = (handlerMethod != null ? ... : null);" outside declarations
+                Expression lhs = node.getLeftHandSide();
+                Expression rhs = node.getRightHandSide();
+                if (lhs instanceof SimpleName && rhs != null) {
+                    String assignedVar = ((SimpleName) lhs).getIdentifier();
+                    handleInitializer(assignedVar, rhs);
+                }
+                return super.visit(node);
+            }
+
+            private void handleInitializer(String assignedVar, Expression initExpr) {
+                // Example patterns:
+                //    assignedVar = (condExpr ? nonNullVal : null)
+                //    assignedVar = (varA != null && someOtherCheck)
+                //    assignedVar = (rawValue != null ? rawValue.indexOf(',') : -1)  // for a sentinel approach
+                if (initExpr instanceof ConditionalExpression) {
+                    ConditionalExpression cond = (ConditionalExpression) initExpr;
+                    Expression condition = cond.getExpression();
+                    // if condition is something like (varA != null)
+                    handleCondition(assignedVar, condition);
+                }
+                else if (initExpr instanceof InfixExpression) {
+                    // e.g. boolB = (varA != null && isExposeListenerSession());
+                    InfixExpression infix = (InfixExpression) initExpr;
+                    handleInfixExpression(assignedVar, infix);
+                }
+                // If you want advanced sentinel logic for numeric checks,
+                // you could detect "?: -1" or "?: -999" patterns here. 
+            }
+
+            private void handleCondition(String assignedVar, Expression condition) {
+                if (condition instanceof InfixExpression) {
+                    InfixExpression infix = (InfixExpression) condition;
+                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
+                        String left = infix.getLeftOperand().toString();
+                        String right = infix.getRightOperand().toString();
+                        // if (varA != null)
+                        if (("null".equals(left) && !right.equals("null"))
+                                || ("null".equals(right) && !left.equals("null"))) {
+                            String nonNullVar = ("null".equals(left)) ? right : left;
+                            // assignedVar != null => nonNullVar != null
+                            impliesMap.put(assignedVar, nonNullVar);
+                        }
+                    }
+                }
+            }
+
+            private void handleInfixExpression(String assignedVar, InfixExpression infix) {
+                // e.g. assignedVar = (varA != null && someOtherCondition)
+                if (infix.getOperator() == InfixExpression.Operator.CONDITIONAL_AND) {
+                    Set<String> nonNullVars = new HashSet<>();
+                    // collect sub-expressions that are "varX != null"
+                    collectNotNullVars(infix.getLeftOperand(), nonNullVars);
+                    collectNotNullVars(infix.getRightOperand(), nonNullVars);
+                    for (Expression extended : (java.util.List<Expression>) infix.extendedOperands()) {
+                        collectNotNullVars(extended, nonNullVars);
+                    }
+                    // For each varX we find, record assignedVar => varX
+                    for (String varX : nonNullVars) {
+                        impliesMap.put(assignedVar, varX);
+                    }
+                }
+            }
+
+            private void collectNotNullVars(Expression expr, Set<String> outVars) {
+                if (expr instanceof InfixExpression) {
+                    InfixExpression sub = (InfixExpression) expr;
+                    if (sub.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
+                        String left = sub.getLeftOperand().toString();
+                        String right = sub.getRightOperand().toString();
+                        // if (left != null)
+                        if (("null".equals(left) && !right.equals("null"))) {
+                            outVars.add(right);
+                        }
+                        if (("null".equals(right) && !left.equals("null"))) {
+                            outVars.add(left);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /* ============================================================
+        PHASE 2: Insert direct checks if advanced indirect scenario
+     ============================================================ */
+
+    /**
+     * Handle a dereference node, e.g. 'methodInvocation', 'fieldAccess', or 'qualifiedName'.
+     * Only insert a requireNonNull if we're in a block protected by some bridging var,
+     * e.g. if (bridgeVar != null), where impliesMap says "bridgeVar => realVar".
+     * We skip the trivial same-variable scenario "if (realVar != null)" => realVar.
+     */
+    private void handleDereferenceCase(Expression qualifier, ASTNode derefNode, ASTRewrite rewriter) {
+        // If your verifier didn't flag it as possibly null, skip
+        if (!expressionsPossiblyNull.contains(qualifier)) {
+            return;
+        }
+
+        // If there's a direct check for the same variable => skip (we only want advanced bridging)
+        if (hasSameVarCheck(qualifier, derefNode)) {
+            return;
+        }
+
+        Statement enclosingStmt = getEnclosingStatement(derefNode);
+        if (enclosingStmt == null) {
+            return;
+        }
+
+        // see if there's "bridgeVar => qualifierVar" in impliesMap
+        String qualifierName = qualifier.toString();
+        for (Map.Entry<String, String> e : impliesMap.entrySet()) {
+            String bridgeVar = e.getKey();
+            String realVar = e.getValue();
+            if (realVar.equals(qualifierName)) {
+                // that means "bridgeVar != null => qualifierName != null"
+                // check if we are indeed inside "if (bridgeVar != null)"
+                if (isInsideIfCondition(bridgeVar, derefNode)) {
+                    // Insert requireNonNull(qualifier) before the statement
+                    insertObjectsRequireNonNull(qualifier, rewriter, enclosingStmt);
+                }
+            }
+        }
+    }
+
+    /**
+     * If you want to insert direct checks before returning a variable flagged as null
+     * in advanced bridging scenarios, do it here.
+     */
+    private void handleReturnCase(Expression returnExpr, ReturnStatement rs, ASTRewrite rewriter) {
+        if (!expressionsPossiblyNull.contains(returnExpr)) {
+            return;
+        }
+        if (hasSameVarCheck(returnExpr, rs)) {
+            return;
+        }
+
+        // check bridging relationships
+        String exprName = returnExpr.toString();
+        for (Map.Entry<String, String> e : impliesMap.entrySet()) {
+            String bridgeVar = e.getKey();
+            String realVar = e.getValue();
+            if (realVar.equals(exprName)) {
+                if (isInsideIfCondition(bridgeVar, rs)) {
+                    insertObjectsRequireNonNull(returnExpr, rewriter, rs);
+                }
+            }
+        }
+    }
+
+    /* ============================================================
+        HELPER METHODS
+     ============================================================ */
+
+    /**
+     * For a MethodInvocation, FieldAccess, or QualifiedName node, returns
+     * the "qualifier" expression (the object being dereferenced).
+     * Returns null if there's no qualifier.
      */
     private Expression getQualifier(ASTNode node) {
         if (node instanceof MethodInvocation) {
             return ((MethodInvocation) node).getExpression();
-        }
-        if (node instanceof FieldAccess) {
+        } else if (node instanceof FieldAccess) {
             return ((FieldAccess) node).getExpression();
-        }
-        if (node instanceof QualifiedName) {
+        } else if (node instanceof QualifiedName) {
             return ((QualifiedName) node).getQualifier();
         }
         return null;
     }
 
     /**
-     * Climbs up the AST until we find the nearest Statement that encloses 'node'.
+     * Climbs the AST until we find the nearest Statement enclosing 'node'.
      */
     private Statement getEnclosingStatement(ASTNode node) {
         ASTNode current = node;
@@ -165,206 +344,109 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     }
 
     /**
-     * Returns true if the qualifier is literally 'this', i.e. a ThisExpression.
+     * Checks if there's a direct check "if (expr != null)" for the same variable 'expr'
+     * in an enclosing if-statement. If found, we skip because we want only advanced bridging,
+     * not the same-variable scenario.
      */
-    private boolean isThisReference(Expression expr) {
-        if (expr instanceof ThisExpression) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Returns true if 'node' (or one of its ancestors) is a LambdaExpression.
-     * We skip refactoring inside lambdas entirely.
-     */
-    private boolean isInsideLambda(ASTNode node) {
-        ASTNode current = node;
-        while (current != null) {
-            if (current instanceof LambdaExpression) {
-                return true;
-            }
-            current = current.getParent();
-        }
-        return false;
-    }
-
-    /**
-     * NEW: Returns true if the expression's type binding indicates it's a Class<?>
-     * or a static utility class. That typically means:
-     *   - The expression's ITypeBinding is "java.lang.Class" or similar
-     *   - The expression resolves to a type that is known to be static
-     *     (e.g. "Assert" is a static utility class).
-     */
-    private boolean isClassOrStaticReference(Expression expr) {
-        ITypeBinding binding = expr.resolveTypeBinding();
-        if (binding == null) {
-            return false;
-        }
-
-        // If it's literally Class<?>, skip
-        if ("java.lang.Class".equals(binding.getQualifiedName())) {
-            return true;
-        }
-
-        // If it's a top-level class or utility class (like "org.springframework.util.Assert"),
-        // we can skip. This check can be refined to your codebase's patterns.
-        if (!binding.isFromSource() && binding.isClass()) {
-            // If it's from an external library or recognized as a top-level utility,
-            // we skip. Or you can check if it's a "static" reference, etc.
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Determines whether there's a <em>direct</em> check guaranteeing 'expr' is non-null,
-     * specifically "if (expr != null)" or "Assert.state(expr != null, ...)", etc.
-     * If we find a direct check on the same variable in the AST path, we return true.
-     */
-    private boolean hasEnclosingDirectCheck(Expression expr, ASTNode node) {
-        ASTNode current = node.getParent();
+    private boolean hasSameVarCheck(Expression expr, ASTNode node) {
         String exprString = expr.toString();
-
+        ASTNode current = node.getParent();
         while (current != null) {
-            // CASE A: if (expr != null)
             if (current instanceof IfStatement) {
-                IfStatement ifStmt = (IfStatement) current;
-                Expression condition = ifStmt.getExpression();
-                if (condition instanceof InfixExpression) {
-                    InfixExpression infix = (InfixExpression) condition;
+                Expression cond = ((IfStatement) current).getExpression();
+                if (cond instanceof InfixExpression) {
+                    InfixExpression infix = (InfixExpression) cond;
                     if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
                         String left = infix.getLeftOperand().toString();
                         String right = infix.getRightOperand().toString();
-
                         if (isNotNullCheckOfSameVar(left, right, exprString)) {
-                            return true; // direct check: "expr != null"
-                        }
-                    }
-                }
-            }
-
-            // CASE B: Assert.state(expr != null, ...)
-            if (current instanceof ExpressionStatement) {
-                Expression stmtExpr = ((ExpressionStatement) current).getExpression();
-                if (stmtExpr instanceof MethodInvocation) {
-                    MethodInvocation mi = (MethodInvocation) stmtExpr;
-                    // Looking for "Assert.state(...)"
-                    if ("state".equals(mi.getName().getIdentifier()) && mi.arguments().size() > 0) {
-                        Expression firstArg = (Expression) mi.arguments().get(0);
-                        if (firstArg instanceof InfixExpression) {
-                            InfixExpression infix = (InfixExpression) firstArg;
-                            if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                                String left = infix.getLeftOperand().toString();
-                                String right = infix.getRightOperand().toString();
-
-                                if (isNotNullCheckOfSameVar(left, right, exprString)) {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            current = current.getParent();
-        }
-        return false;
-    }
-
-    /**
-     * Determines whether there's an *indirect* check guaranteeing 'expr' is non-null
-     * because some *other* variable is checked.
-     */
-    private boolean hasEnclosingIndirectCheck(Expression expr, ASTNode node) {
-        ASTNode current = node.getParent();
-        String exprString = expr.toString();
-
-        while (current != null) {
-            // CASE A: if (someOtherVar != null) { ... }
-            if (current instanceof IfStatement) {
-                IfStatement ifStmt = (IfStatement) current;
-                Expression condition = ifStmt.getExpression();
-                if (condition instanceof InfixExpression) {
-                    InfixExpression infix = (InfixExpression) condition;
-                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                        String left = infix.getLeftOperand().toString();
-                        String right = infix.getRightOperand().toString();
-
-                        // If the condition is "someCond != null" or "null != someCond",
-                        // and 'someCond' is NOT the same as exprString,
-                        // we consider it an *indirect* check => return true.
-                        if (isNotNullCheckOfDifferentVar(left, right, exprString)) {
                             return true;
                         }
                     }
                 }
             }
+            current = current.getParent();
+        }
+        return false;
+    }
 
-            // CASE B: Assert.state(someOtherVar != null, "...")
-            if (current instanceof ExpressionStatement) {
-                Expression stmtExpr = ((ExpressionStatement) current).getExpression();
-                if (stmtExpr instanceof MethodInvocation) {
-                    MethodInvocation mi = (MethodInvocation) stmtExpr;
-                    // Looking for "Assert.state(...)"
-                    if ("state".equals(mi.getName().getIdentifier()) && mi.arguments().size() > 0) {
-                        Expression firstArg = (Expression) mi.arguments().get(0);
-                        if (firstArg instanceof InfixExpression) {
-                            InfixExpression infix = (InfixExpression) firstArg;
-                            if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                                String left = infix.getLeftOperand().toString();
-                                String right = infix.getRightOperand().toString();
+    private boolean isNotNullCheckOfSameVar(String left, String right, String exprString) {
+        // "expr != null" or "null != expr"
+        boolean leftIsNull = "null".equals(left);
+        boolean rightIsNull = "null".equals(right);
 
-                                if (isNotNullCheckOfDifferentVar(left, right, exprString)) {
-                                    return true;
-                                }
-                            }
+        // If left is "null" and right is exprString => "null != exprString"
+        // If right is "null" and left is exprString => "exprString != null"
+        if (leftIsNull && right.equals(exprString)) {
+            return true;
+        }
+        if (rightIsNull && left.equals(exprString)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Checks if we are inside an if-statement block that says "if (bridgeVar != null)"
+     * or an equivalent check. If so, we assume that "bridgeVar != null => realVar != null"
+     * from impliesMap is valid in that block.
+     */
+    private boolean isInsideIfCondition(String bridgeVar, ASTNode node) {
+        ASTNode current = node;
+        while (current != null) {
+            if (current instanceof IfStatement) {
+                IfStatement ifStmt = (IfStatement) current;
+                Expression cond = ifStmt.getExpression();
+                if (cond instanceof InfixExpression) {
+                    InfixExpression infix = (InfixExpression) cond;
+                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
+                        String left = infix.getLeftOperand().toString();
+                        String right = infix.getRightOperand().toString();
+                        if (isNotNullCheckOfSameVar(left, right, bridgeVar)) {
+                            return true;
                         }
                     }
                 }
             }
-
             current = current.getParent();
         }
         return false;
     }
 
     /**
-     * Returns true if the condition is "expr != null" (or "null != expr")
-     * for the <strong>same</strong> variable as 'exprString'.
+     * Inserts "Objects.requireNonNull(expr);" immediately before originalStmt
+     * inside a new Block, preserving runtime semantics (the code only runs in
+     * a scenario where expr is guaranteed not to be null anyway).
      */
-    private boolean isNotNullCheckOfSameVar(String left, String right, String exprString) {
-        boolean leftIsNull = "null".equals(left);
-        boolean rightIsNull = "null".equals(right);
+    private void insertObjectsRequireNonNull(Expression expr,
+                                             ASTRewrite rewriter,
+                                             Statement originalStmt) {
+        AST ast = originalStmt.getAST();
 
-        if (leftIsNull && right.equals(exprString)) {
-            // "null != exprString"
-            return true;
-        }
-        if (rightIsNull && left.equals(exprString)) {
-            // "exprString != null"
-            return true;
-        }
-        return false;
+        // Build: Objects.requireNonNull(expr);
+        MethodInvocation requireNonNullCall = ast.newMethodInvocation();
+        requireNonNullCall.setExpression(ast.newSimpleName("Objects"));
+        requireNonNullCall.setName(ast.newSimpleName("requireNonNull"));
+        requireNonNullCall.arguments().add(ASTNode.copySubtree(ast, expr));
+
+        ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
+
+        // Wrap in a new block: { Objects.requireNonNull(expr); originalStmt; }
+        Block newBlock = ast.newBlock();
+        newBlock.statements().add(requireNonNullStmt);
+        newBlock.statements().add(ASTNode.copySubtree(ast, originalStmt));
+
+        // Replace the old statement with the new block
+        rewriter.replace(originalStmt, newBlock, null);
     }
 
     /**
-     * Returns true if the condition is "someVar != null" (or "null != someVar")
-     * where "someVar" is <strong>not</strong> the same text as exprString.
+     * Utility to climb up to the containing CompilationUnit, if any.
      */
-    private boolean isNotNullCheckOfDifferentVar(String left, String right, String exprString) {
-        boolean leftIsNull = "null".equals(left);
-        boolean rightIsNull = "null".equals(right);
-
-        // If left is null => right is the variable,
-        // If right is null => left is the variable.
-        // "different var" => !var.equals(exprString).
-        if (leftIsNull && !right.equals(exprString)) {
-            return true;
+    private CompilationUnit getCompilationUnit(ASTNode node) {
+        while (node != null && !(node instanceof CompilationUnit)) {
+            node = node.getParent();
         }
-        if (rightIsNull && !left.equals(exprString)) {
-            return true;
-        }
-        return false;
+        return (CompilationUnit) node;
     }
 }
