@@ -34,7 +34,7 @@ import java.util.Set;
  * you'd extend the logic to treat `pos != -1` => `rawValue != null`. The demonstration below
  * has placeholders for that approach.
  */
-public class AddNullChecksForNullableReferencesRefactoring extends Refactoring {
+public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
     /**
      * The set of expressions flagged by your verifier as potentially null.
@@ -51,7 +51,7 @@ public class AddNullChecksForNullableReferencesRefactoring extends Refactoring {
      */
     private final Map<String, String> impliesMap;
 
-    public AddNullChecksForNullableReferencesRefactoring(Set<Expression> expressionsPossiblyNull) {
+    public AddNullCheckBeforeDereferenceRefactoring(Set<Expression> expressionsPossiblyNull) {
         this.expressionsPossiblyNull = expressionsPossiblyNull;
         this.impliesMap = new HashMap<>();
     }
