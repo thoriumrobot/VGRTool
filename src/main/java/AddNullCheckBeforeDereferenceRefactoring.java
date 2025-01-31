@@ -3,6 +3,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -15,8 +16,15 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     private final Set<Expression> expressionsPossiblyNull;
     private final Map<String, String> impliesMap;
 
+    // No-argument constructor.
     public AddNullCheckBeforeDereferenceRefactoring() {
         this.expressionsPossiblyNull = new HashSet<>();
+        this.impliesMap = new HashMap<>();
+    }
+    
+    // Overloaded constructor to allow passing a set of expressions.
+    public AddNullCheckBeforeDereferenceRefactoring(Set<Expression> expressionsPossiblyNull) {
+        this.expressionsPossiblyNull = expressionsPossiblyNull;
         this.impliesMap = new HashMap<>();
     }
 
@@ -183,6 +191,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
         }
     }
 
+    // This version inserts a requireNonNull call before the original statement.
     private void insertObjectsRequireNonNull(Expression expr, ASTRewrite rewriter, Statement originalStmt) {
         if (originalStmt == null) {
             return;
@@ -195,16 +204,31 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
         ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
 
-        rewriter.getListRewrite(originalStmt.getParent(), Block.STATEMENTS_PROPERTY).insertBefore(requireNonNullStmt, originalStmt, null);
+        rewriter.getListRewrite(originalStmt.getParent(), Block.STATEMENTS_PROPERTY)
+                .insertBefore(requireNonNullStmt, originalStmt, null);
     }
 
+    // Finds the CompilationUnit for the given node.
     private CompilationUnit getCompilationUnit(ASTNode node) {
         while (node != null && !(node instanceof CompilationUnit)) {
             node = node.getParent();
         }
         return (CompilationUnit) node;
     }
+    
+    // Returns the qualifier of the node if applicable.
+    private Expression getQualifier(ASTNode node) {
+        if (node instanceof MethodInvocation) {
+            return ((MethodInvocation) node).getExpression();
+        } else if (node instanceof FieldAccess) {
+            return ((FieldAccess) node).getExpression();
+        } else if (node instanceof QualifiedName) {
+            return ((QualifiedName) node).getQualifier();
+        }
+        return null;
+    }
 
+    // Retrieves the enclosing Statement for the given node.
     private Statement getEnclosingStatement(ASTNode node) {
         while (node != null && !(node instanceof Statement)) {
             node = node.getParent();
@@ -285,30 +309,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
             }
         });
         return found[0];
-    }
-
-    private void insertObjectsRequireNonNull(Expression expr, ASTRewrite rewriter, Statement originalStmt) {
-        AST ast = originalStmt.getAST();
-        MethodInvocation requireNonNullCall = ast.newMethodInvocation();
-        requireNonNullCall.setExpression(ast.newSimpleName("Objects"));
-        requireNonNullCall.setName(ast.newSimpleName("requireNonNull"));
-        requireNonNullCall.arguments().add(ASTNode.copySubtree(ast, expr));
-
-        ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
-
-        // Wrap originalStmt in a new Block with the added requireNonNull statement
-        Block newBlock = ast.newBlock();
-        newBlock.statements().add(requireNonNullStmt);
-        newBlock.statements().add(ASTNode.copySubtree(ast, originalStmt));
-
-        rewriter.replace(originalStmt, newBlock, null);
-    }
-
-    private CompilationUnit getCompilationUnit(ASTNode node) {
-        while (node != null && !(node instanceof CompilationUnit)) {
-            node = node.getParent();
-        }
-        return (CompilationUnit) node;
     }
 }
 
