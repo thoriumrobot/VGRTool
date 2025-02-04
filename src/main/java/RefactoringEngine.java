@@ -20,7 +20,7 @@ public class RefactoringEngine {
             } else if (name.equals("AddNullChecksForNullableReferences")) {
                 refactoring = new AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull);
             } else if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
-                refactoring = new AddNullCheckBeforeDereferenceRefactoring(expressionsPossiblyNull);
+                refactoring = new AddNullCheckBeforeDereferenceRefactoring();
             /*} else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
                 refactoring = new AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull, expressionsPossiblyNull);*/
             } else if (name.equals("AddNullnessAnnotationsRefactoring")) {

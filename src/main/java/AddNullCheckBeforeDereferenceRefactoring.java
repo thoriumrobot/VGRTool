@@ -1,417 +1,136 @@
-import org.eclipse.jdt.core.dom.*;
+import java.util.List;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.ArrayAccess;
+import org.eclipse.jdt.core.dom.Block;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.IfStatement;
+import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.MethodInvocation;
+import org.eclipse.jdt.core.dom.NullLiteral;
+import org.eclipse.jdt.core.dom.QualifiedName;
+import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
-/**
- * A refactoring that inserts Objects.requireNonNull(...) calls for variables
- * that are "possibly null" in advanced bridging scenarios. This ensures
- * @Nullable inference tools can see a direct null check whenever the code
- * uses a variable that is only indirectly guaranteed non-null.
- *
- * Constraints:
- *  - Never insert direct checks for 'this'.
- *  - Skip lambda expressions entirely.
- *  - Never add checks for class objects (e.g., if (SomeClass != null))—not relevant.
- *  - Only insert a direct check if there's an *indirect* check in place, i.e.
- *    a bridging scenario (handlerType != null => handlerMethod != null).
- *  - If the same variable is already directly checked in an ancestor `if (x != null)`,
- *    do not add an additional direct check for that same variable.
- */
+// (Assume Refactoring is an abstract base class provided in the same framework)
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
-
-    private final Set<Expression> expressionsPossiblyNull;
-    private final Map<String, String> impliesMap;
-
-    public AddNullCheckBeforeDereferenceRefactoring(Set<Expression> expressionsPossiblyNull) {
-        this.expressionsPossiblyNull = expressionsPossiblyNull;
-        this.impliesMap = new HashMap<>();
+    /** Optional list of expressions identified as possibly null (to guide applicability) */
+    private List<Expression> expressionsPossiblyNull;
+    
+    /** Default constructor (for RefactoringEngine integration) */
+    public AddNullCheckBeforeDereferenceRefactoring() {
+        super();  // Call to base class (if it expects a name/ID)
     }
-
+    /** Constructor that accepts a list of possibly-null expressions */
+    public AddNullCheckBeforeDereferenceRefactoring(List<Expression> expressionsPossiblyNull) {
+        super();
+        this.expressionsPossiblyNull = expressionsPossiblyNull;
+    }
+    
     @Override
     public boolean isApplicable(ASTNode node) {
-        // We are interested in method/field dereferences or return statements
-        // Also skip lambdas (LambdaExpression).
-        if (node instanceof LambdaExpression) {
+        // Only consider method calls, field accesses, qualified names, or array accesses as dereference points
+        Expression targetExpr = null;
+        if (node instanceof MethodInvocation) {
+            // For method calls, check the object on which the method is invoked
+            targetExpr = ((MethodInvocation) node).getExpression();
+            if (targetExpr == null) {
+                // If null, this is a static method call or implicit this, no null-check needed
+                return false;
+            }
+        } else if (node instanceof FieldAccess) {
+            // For explicit field access (object.field)
+            targetExpr = ((FieldAccess) node).getExpression();
+        } else if (node instanceof QualifiedName) {
+            // QualifiedName can represent a field access (object.field) or a package/class reference.
+            QualifiedName qName = (QualifiedName) node;
+            // Use the qualifier if this is an instance field access (heuristic: assume non-uppercase start means instance var)
+            // (Alternatively, type binding check would distinguish static vs instance, but assume simple heuristic or context.)
+            targetExpr = qName.getQualifier();
+        } else if (node instanceof ArrayAccess) {
+            // For array access expression object[index], the array expression is the target
+            targetExpr = ((ArrayAccess) node).getArray();
+        } else {
+            // Other types of nodes are not applicable for this refactoring
             return false;
         }
-        // Skip 'this' references or classes
-        // (We do a further check in 'apply' for the "this" object.)
-        return (node instanceof MethodInvocation
-                || node instanceof FieldAccess
-                || node instanceof QualifiedName
-                || node instanceof ReturnStatement);
+        if (targetExpr == null) {
+            return false;
+        }
+        // If a list of possibly-null expressions is provided, use it to filter applicability
+        if (expressionsPossiblyNull != null && !expressionsPossiblyNull.isEmpty()) {
+            // Only applicable if the target expression is one of the known possibly-null expressions
+            if (!expressionsPossiblyNull.contains(targetExpr)) {
+                return false;
+            }
+        }
+        // Also ensure we can wrap the entire statement containing the node
+        ASTNode parentNode = node.getParent();
+        if (parentNode == null) {
+            return false;
+        }
+        // Only proceed if the node's parent is a statement that we can replace (to insert the if-block)
+        // e.g., an ExpressionStatement (a standalone call or assignment), or an Assignment within an ExpressionStatement.
+        if (parentNode instanceof Statement) {
+            // If the parent is a ReturnStatement, we skip because handling return with null-check is non-trivial here
+            if (parentNode.getNodeType() == ASTNode.RETURN_STATEMENT) {
+                return false;
+            }
+            return true;  // The node is used in a statement context that can be handled
+        }
+        return false;
     }
-
+    
     @Override
     public void apply(ASTNode node, ASTRewrite rewriter) {
-        // Build bridging map if we haven't yet
-        CompilationUnit cu = getCompilationUnit(node);
-        if (cu == null) {
-            return;
-        }
-        buildImplicationsMap(cu);
-
-        // Perform the insertion logic
-        if (node instanceof MethodInvocation
-            || node instanceof FieldAccess
-            || node instanceof QualifiedName) {
-
-            Expression qualifier = getQualifier(node);
-            if (qualifier != null) {
-                handleDereferenceCase(qualifier, node, rewriter);
-            }
-        }
-        else if (node instanceof ReturnStatement) {
-            ReturnStatement rs = (ReturnStatement) node;
-            if (rs.getExpression() != null) {
-                handleReturnCase(rs.getExpression(), rs, rewriter);
-            }
-        }
-    }
-
-    /* ============================================================
-       PHASE 1: Build 'impliesMap' for advanced indirect checks
-     ============================================================ */
-
-    @SuppressWarnings("unchecked")
-    private void buildImplicationsMap(CompilationUnit cu) {
-        cu.accept(new ASTVisitor() {
-
-            @Override
-            public boolean visit(VariableDeclarationStatement node) {
-                for (Object fragObj : node.fragments()) {
-                    if (fragObj instanceof VariableDeclarationFragment) {
-                        VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
-                        Expression init = frag.getInitializer();
-                        if (init != null) {
-                            String assignedVar = frag.getName().getIdentifier();
-                            handleInitializer(assignedVar, init);
-                        }
-                    }
-                }
-                return super.visit(node);
-            }
-
-            @Override
-            public boolean visit(VariableDeclarationExpression node) {
-                for (Object fragObj : node.fragments()) {
-                    if (fragObj instanceof VariableDeclarationFragment) {
-                        VariableDeclarationFragment frag = (VariableDeclarationFragment) fragObj;
-                        Expression init = frag.getInitializer();
-                        if (init != null) {
-                            String assignedVar = frag.getName().getIdentifier();
-                            handleInitializer(assignedVar, init);
-                        }
-                    }
-                }
-                return super.visit(node);
-            }
-
-            @Override
-            public boolean visit(Assignment node) {
-                // E.g. "bridgeVar = (realVar != null ? ... : null);"
-                Expression lhs = node.getLeftHandSide();
-                Expression rhs = node.getRightHandSide();
-                if (lhs instanceof SimpleName && rhs != null) {
-                    String assignedVar = ((SimpleName) lhs).getIdentifier();
-                    handleInitializer(assignedVar, rhs);
-                }
-                return super.visit(node);
-            }
-
-            /**
-             * Unwrap any ParenthesizedExpression so that we see the actual initializer.
-             */
-            private Expression unwrap(Expression expr) {
-                while (expr instanceof ParenthesizedExpression) {
-                    expr = ((ParenthesizedExpression) expr).getExpression();
-                }
-                return expr;
-            }
-
-            private void handleInitializer(String assignedVar, Expression initExpr) {
-                Expression unwrapped = unwrap(initExpr);
-                // ConditionalExpression => e.g. assignedVar = (realVar != null ? someValue : null)
-                if (unwrapped instanceof ConditionalExpression) {
-                    ConditionalExpression cond = (ConditionalExpression) unwrapped;
-                    Expression condition = cond.getExpression();
-                    handleCondition(assignedVar, condition);
-                }
-                // InfixExpression => e.g. assignedVar = (realVar != null && otherStuff)
-                else if (unwrapped instanceof InfixExpression) {
-                    handleInfixExpression(assignedVar, (InfixExpression) unwrapped);
-                }
-            }
-
-            private void handleCondition(String assignedVar, Expression condition) {
-                Expression unwrapped = unwrap(condition);
-                if (unwrapped instanceof InfixExpression) {
-                    InfixExpression infix = (InfixExpression) unwrapped;
-                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                        // if (realVar != null)
-                        String left = infix.getLeftOperand().toString();
-                        String right = infix.getRightOperand().toString();
-                        if (("null".equals(left) && !right.equals("null"))
-                                || ("null".equals(right) && !left.equals("null"))) {
-                            String nonNullVar = ("null".equals(left)) ? right : left;
-                            impliesMap.put(assignedVar, nonNullVar);
-                        }
-                    }
-                }
-            }
-
-            private void handleInfixExpression(String assignedVar, InfixExpression infix) {
-                if (infix.getOperator() == InfixExpression.Operator.CONDITIONAL_AND) {
-                    Set<String> nonNullVars = new HashSet<>();
-                    collectNotNullVars(infix.getLeftOperand(), nonNullVars);
-                    collectNotNullVars(infix.getRightOperand(), nonNullVars);
-                    for (Object extendedOperand : infix.extendedOperands()) {
-                        if (extendedOperand instanceof Expression) {
-                            collectNotNullVars((Expression) extendedOperand, nonNullVars);
-                        }
-                    }
-                    for (String varX : nonNullVars) {
-                        impliesMap.put(assignedVar, varX);
-                    }
-                }
-            }
-
-            private void collectNotNullVars(Expression expr, Set<String> outVars) {
-                Expression unwrapped = unwrap(expr);
-                if (unwrapped instanceof InfixExpression) {
-                    InfixExpression sub = (InfixExpression) unwrapped;
-                    if (sub.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                        String left = sub.getLeftOperand().toString();
-                        String right = sub.getRightOperand().toString();
-                        // if (varX != null)
-                        if ("null".equals(left) && !right.equals("null")) {
-                            outVars.add(right);
-                        }
-                        else if ("null".equals(right) && !left.equals("null")) {
-                            outVars.add(left);
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    /* ============================================================
-       PHASE 2: Insert direct checks if advanced indirect scenario
-     ============================================================ */
-
-    private void handleDereferenceCase(Expression qualifier, ASTNode derefNode, ASTRewrite rewriter) {
-        // Must be flagged as possibly null
-        if (!expressionsPossiblyNull.contains(qualifier)) {
-            return;
-        }
-        // Skip "this" references, e.g. "this.someField"
-        if (qualifier instanceof ThisExpression) {
-            return;
-        }
-        // Skip if there's already a direct check on the same var
-        if (hasSameVarCheck(qualifier, derefNode)) {
-            return;
-        }
-
-        Statement enclosingStmt = getEnclosingStatement(derefNode);
-        if (enclosingStmt == null) {
-            return;
-        }
-
-        String qualifierName = qualifier.toString();
-        // Check bridging map: e.g. "bridgeVar => realVar"
-        for (Map.Entry<String, String> e : impliesMap.entrySet()) {
-            String bridgeVar = e.getKey();
-            String realVar   = e.getValue();
-            if (realVar.equals(qualifierName)) {
-                // "bridgeVar => qualifierName"
-                if (isInsideNonNullBranch(bridgeVar, derefNode)) {
-                    insertObjectsRequireNonNull(qualifier, rewriter, enclosingStmt);
-                }
-            }
-        }
-    }
-
-    private void handleReturnCase(Expression returnExpr, ReturnStatement rs, ASTRewrite rewriter) {
-        if (!expressionsPossiblyNull.contains(returnExpr)) {
-            return;
-        }
-        // Skip "this" references
-        if (returnExpr instanceof ThisExpression) {
-            return;
-        }
-        if (hasSameVarCheck(returnExpr, rs)) {
-            return;
-        }
-
-        // Possibly a bridging scenario for return statements
-        String exprName = returnExpr.toString();
-        for (Map.Entry<String, String> e : impliesMap.entrySet()) {
-            String bridgeVar = e.getKey();
-            String realVar   = e.getValue();
-            if (realVar.equals(exprName)) {
-                if (isInsideNonNullBranch(bridgeVar, rs)) {
-                    insertObjectsRequireNonNull(returnExpr, rewriter, rs);
-                }
-            }
-        }
-    }
-
-    /* ============================================================
-       HELPER METHODS
-     ============================================================ */
-
-    private Expression getQualifier(ASTNode node) {
+        // Precondition: isApplicable returned true for this node
+        AST ast = node.getAST();  // Get the AST to create new nodes
+        Expression targetExpr;
+        // Determine the target (the object being dereferenced) similar to isApplicable logic
         if (node instanceof MethodInvocation) {
-            return ((MethodInvocation) node).getExpression();
+            targetExpr = ((MethodInvocation) node).getExpression();
+        } else if (node instanceof FieldAccess) {
+            targetExpr = ((FieldAccess) node).getExpression();
+        } else if (node instanceof QualifiedName) {
+            targetExpr = ((QualifiedName) node).getQualifier();
+        } else if (node instanceof ArrayAccess) {
+            targetExpr = ((ArrayAccess) node).getArray();
+        } else {
+            // Should not happen if isApplicable is correctly used
+            return;
         }
-        else if (node instanceof FieldAccess) {
-            return ((FieldAccess) node).getExpression();
+        if (targetExpr == null) {
+            // Safety check: no target to null-check
+            return;
         }
-        else if (node instanceof QualifiedName) {
-            return ((QualifiedName) node).getQualifier();
+        // Create a copy of the target expression for use in the null-check condition 
+        Expression targetExprCopy = (Expression) ASTNode.copySubtree(ast, targetExpr);
+        // Build the null-check condition: (targetExpr != null)
+        InfixExpression condition = ast.newInfixExpression();
+        condition.setLeftOperand(targetExprCopy);
+        condition.setOperator(InfixExpression.Operator.NOT_EQUALS);
+        condition.setRightOperand(ast.newNullLiteral());
+        // Create the if statement with the condition
+        IfStatement ifStatement = ast.newIfStatement();
+        ifStatement.setExpression(condition);
+        // The "then" block of the if will contain the original operation (node) as a statement
+        Block thenBlock = ast.newBlock();
+        // Find the statement to encapsulate. Usually, if node is part of an ExpressionStatement or Assignment,
+        // we want to wrap that entire statement.
+        ASTNode parentNode = node.getParent();
+        Statement origStatement;
+        if (parentNode instanceof Statement) {
+            origStatement = (Statement) parentNode;
+        } else {
+            // In unexpected cases, just treat the node itself as a statement (though normally node will be inside a Statement)
+            origStatement = (Statement) node;
         }
-        return null;
-    }
-
-    private Statement getEnclosingStatement(ASTNode node) {
-        ASTNode current = node;
-        while (current != null && !(current instanceof Statement)) {
-            current = current.getParent();
-        }
-        return (Statement) current;
-    }
-
-    /**
-     * If there's a direct "if (expr != null)" in the ancestor, we skip.
-     * This refactoring is only for bridging scenarios, not same-variable checks.
-     */
-    private boolean hasSameVarCheck(Expression expr, ASTNode node) {
-        String exprString = expr.toString();
-        ASTNode current = node.getParent();
-        while (current != null) {
-            if (current instanceof IfStatement) {
-                Expression cond = ((IfStatement) current).getExpression();
-                if (cond instanceof InfixExpression) {
-                    InfixExpression infix = (InfixExpression) cond;
-                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                        String left = infix.getLeftOperand().toString();
-                        String right = infix.getRightOperand().toString();
-                        if (isNotNullCheckOfSameVar(left, right, exprString)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            current = current.getParent();
-        }
-        return false;
-    }
-
-    private boolean isNotNullCheckOfSameVar(String left, String right, String exprString) {
-        boolean leftIsNull  = "null".equals(left);
-        boolean rightIsNull = "null".equals(right);
-        // "expr != null" or "null != expr"
-        if (leftIsNull && right.equals(exprString)) {
-            return true;
-        }
-        if (rightIsNull && left.equals(exprString)) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * This is the "magic" fix: we consider that code is in the "non-null" branch of
-     * 'bridgeVar' if either:
-     *   (A) we are inside `if (bridgeVar != null)` block, or
-     *   (B) we are inside the `else` block of `if (bridgeVar == null)`.
-     */
-    private boolean isInsideNonNullBranch(String bridgeVar, ASTNode node) {
-        ASTNode current = node;
-        while (current != null) {
-            if (current instanceof IfStatement) {
-                IfStatement ifStmt = (IfStatement) current;
-                Expression cond = ifStmt.getExpression();
-                if (cond instanceof InfixExpression) {
-                    InfixExpression infix = (InfixExpression) cond;
-                    String left = infix.getLeftOperand().toString();
-                    String right = infix.getRightOperand().toString();
-
-                    // Case A: if (bridgeVar != null)
-                    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
-                        if (isNotNullCheckOfSameVar(left, right, bridgeVar)) {
-                            // Are we in the 'then' part?
-                            return isDescendantOf(node, ifStmt.getThenStatement());
-                        }
-                    }
-                    // Case B: if (bridgeVar == null) => else => bridgeVar != null
-                    if (infix.getOperator() == InfixExpression.Operator.EQUALS) {
-                        if (isNullCheckOfSameVar(left, right, bridgeVar)) {
-                            // Are we in the 'else' part?
-                            return isDescendantOf(node, ifStmt.getElseStatement());
-                        }
-                    }
-                }
-            }
-            current = current.getParent();
-        }
-        return false;
-    }
-
-    private boolean isNullCheckOfSameVar(String left, String right, String exprString) {
-        boolean leftIsNull  = "null".equals(left);
-        boolean rightIsNull = "null".equals(right);
-        return (leftIsNull && right.equals(exprString))
-            || (rightIsNull && left.equals(exprString));
-    }
-
-    private boolean isDescendantOf(ASTNode node, Statement stmt) {
-        if (stmt == null) {
-            return false;
-        }
-        if (stmt == node) {
-            return true;
-        }
-        final boolean[] found = new boolean[1];
-        stmt.accept(new ASTVisitor() {
-            @Override
-            public void preVisit(ASTNode n) {
-                if (n == node) {
-                    found[0] = true;
-                }
-            }
-        });
-        return found[0];
-    }
-
-    private void insertObjectsRequireNonNull(Expression expr, ASTRewrite rewriter, Statement originalStmt) {
-        AST ast = originalStmt.getAST();
-        MethodInvocation requireNonNullCall = ast.newMethodInvocation();
-        requireNonNullCall.setExpression(ast.newSimpleName("Objects"));
-        requireNonNullCall.setName(ast.newSimpleName("requireNonNull"));
-        requireNonNullCall.arguments().add(ASTNode.copySubtree(ast, expr));
-
-        ExpressionStatement requireNonNullStmt = ast.newExpressionStatement(requireNonNullCall);
-
-        // Wrap originalStmt in a new Block with the added requireNonNull statement
-        Block newBlock = ast.newBlock();
-        newBlock.statements().add(requireNonNullStmt);
-        newBlock.statements().add(ASTNode.copySubtree(ast, originalStmt));
-
-        rewriter.replace(originalStmt, newBlock, null);
-    }
-
-    private CompilationUnit getCompilationUnit(ASTNode node) {
-        while (node != null && !(node instanceof CompilationUnit)) {
-            node = node.getParent();
-        }
-        return (CompilationUnit) node;
+        // Copy the original statement (deep copy) to place inside the if-block
+        Statement origStatementCopy = (Statement) ASTNode.copySubtree(ast, origStatement);
+        thenBlock.statements().add(origStatementCopy);
+        ifStatement.setThenStatement(thenBlock);
+        // **Apply the replacement**: replace the original statement with the new if-statement in the AST
+        rewriter.replace(origStatement, ifStatement, null);  //&#8203;:contentReference[oaicite:2]{index=2}
     }
 }
 
