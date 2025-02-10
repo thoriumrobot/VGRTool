@@ -89,7 +89,7 @@ public void apply(ASTNode node, ASTRewrite rewriter) {
     VariableDeclarationFragment assignedVariable = null;
     IfStatement existingIfStatement = null;
 
-    // 1️⃣ Find the variable assigned via a ternary operator
+    // 1️ Find the variable assigned via a ternary operator
     while (parentNode != null) {
         if (parentNode instanceof VariableDeclarationFragment) {
             VariableDeclarationFragment varDecl = (VariableDeclarationFragment) parentNode;
@@ -117,7 +117,7 @@ public void apply(ASTNode node, ASTRewrite rewriter) {
         return;
     }
 
-// 2️⃣ Find the if-statement checking the assigned variable
+// 2️ Find the if-statement checking the assigned variable
 ASTNode current = assignedVariable.getParent();
 while (current != null) {
     if (current instanceof IfStatement) {
@@ -139,7 +139,7 @@ while (current != null) {
         }
     }
 
-    // ✅ Instead of going up the AST, we move **forward** in the block
+    // Instead of going up the AST, we move **forward** in the block
     if (current.getParent() instanceof Block) {
         Block block = (Block) current.getParent();
         List<?> statements = block.statements();
@@ -163,12 +163,12 @@ if (existingIfStatement != null && assignedVariable != null) {
 // Retrieve initializer and ensure it's not wrapped in a ParenthesizedExpression
 Expression initializer = assignedVariable.getInitializer();
 
-// ✅ Unwrap ParenthesizedExpression before proceeding
+// Unwrap ParenthesizedExpression before proceeding
 while (initializer instanceof ParenthesizedExpression) {
     initializer = ((ParenthesizedExpression) initializer).getExpression();
 }
 
-// ✅ Now, safely cast to ConditionalExpression
+// Now, safely cast to ConditionalExpression
 if (initializer instanceof ConditionalExpression) {
     ConditionalExpression ternary = (ConditionalExpression) initializer;
     Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast, ternary.getExpression());
