@@ -48,30 +48,35 @@ public class RefactoringEngine {
         }
     }
 
-    public String applyRefactorings(CompilationUnit cu, String sourceCode) {
-        AST ast = cu.getAST();
-        ASTRewrite rewriter = ASTRewrite.create(ast);
+public String applyRefactorings(CompilationUnit cu, String sourceCode) {
+    AST ast = cu.getAST();
+    ASTRewrite rewriter = ASTRewrite.create(ast);
 
-        for (Refactoring refactoring : refactorings) {
-            cu.accept(new ASTVisitor() {
-                @Override
-                public void preVisit(ASTNode node) {
-                    if (refactoring.isApplicable(node)) {
-                        refactoring.apply(node, rewriter);
-                    }
+    for (Refactoring refactoring : refactorings) {
+        cu.accept(new ASTVisitor() {
+            @Override
+            public void preVisit(ASTNode node) {
+                System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
+
+                if (refactoring.isApplicable(node)) {
+                    System.out.println("[DEBUG] Applying refactoring to: " + node);
+                    refactoring.apply(node, rewriter);
                 }
-            });
-        }
-
-        Document document = new Document(sourceCode);
-        TextEdit edits = rewriter.rewriteAST(document, null);
-        try {
-            edits.apply(document);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return document.get();
+            }
+        });
     }
+
+    Document document = new Document(sourceCode);
+    TextEdit edits = rewriter.rewriteAST(document, null);
+    try {
+        edits.apply(document);
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+
+    return document.get();
+}
+
+
 }
 

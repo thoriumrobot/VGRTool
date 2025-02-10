@@ -12,6 +12,10 @@ import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.jdt.core.dom.ConditionalExpression;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.SimpleName;
+import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 // (Assume Refactoring is an abstract base class provided in the same framework)
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
     /** Optional list of expressions identified as possibly null (to guide applicability) */
@@ -27,110 +31,170 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
         this.expressionsPossiblyNull = expressionsPossiblyNull;
     }
     
-    @Override
-    public boolean isApplicable(ASTNode node) {
-        // Only consider method calls, field accesses, qualified names, or array accesses as dereference points
-        Expression targetExpr = null;
-        if (node instanceof MethodInvocation) {
-            // For method calls, check the object on which the method is invoked
-            targetExpr = ((MethodInvocation) node).getExpression();
-            if (targetExpr == null) {
-                // If null, this is a static method call or implicit this, no null-check needed
-                return false;
-            }
-        } else if (node instanceof FieldAccess) {
-            // For explicit field access (object.field)
-            targetExpr = ((FieldAccess) node).getExpression();
-        } else if (node instanceof QualifiedName) {
-            // QualifiedName can represent a field access (object.field) or a package/class reference.
-            QualifiedName qName = (QualifiedName) node;
-            // Use the qualifier if this is an instance field access (heuristic: assume non-uppercase start means instance var)
-            // (Alternatively, type binding check would distinguish static vs instance, but assume simple heuristic or context.)
-            targetExpr = qName.getQualifier();
-        } else if (node instanceof ArrayAccess) {
-            // For array access expression object[index], the array expression is the target
-            targetExpr = ((ArrayAccess) node).getArray();
-        } else {
-            // Other types of nodes are not applicable for this refactoring
-            return false;
-        }
-        if (targetExpr == null) {
-            return false;
-        }
-        // If a list of possibly-null expressions is provided, use it to filter applicability
-        if (expressionsPossiblyNull != null && !expressionsPossiblyNull.isEmpty()) {
-            // Only applicable if the target expression is one of the known possibly-null expressions
-            if (!expressionsPossiblyNull.contains(targetExpr)) {
-                return false;
-            }
-        }
-        // Also ensure we can wrap the entire statement containing the node
-        ASTNode parentNode = node.getParent();
-        if (parentNode == null) {
-            return false;
-        }
-        // Only proceed if the node's parent is a statement that we can replace (to insert the if-block)
-        // e.g., an ExpressionStatement (a standalone call or assignment), or an Assignment within an ExpressionStatement.
-        if (parentNode instanceof Statement) {
-            // If the parent is a ReturnStatement, we skip because handling return with null-check is non-trivial here
-            if (parentNode.getNodeType() == ASTNode.RETURN_STATEMENT) {
-                return false;
-            }
-            return true;  // The node is used in a statement context that can be handled
-        }
-        return false;
+@Override
+public boolean isApplicable(ASTNode node) {
+    System.out.println("[DEBUG] Checking if node is applicable: " + node.getClass().getSimpleName());
+
+    if (node instanceof MethodInvocation || node instanceof FieldAccess || node instanceof QualifiedName || node instanceof ArrayAccess) {
+        return true;
     }
+
+    if (node instanceof IfStatement) {
+        IfStatement ifStmt = (IfStatement) node;
+        Expression condition = ifStmt.getExpression();
+
+if (condition instanceof InfixExpression) {
+    InfixExpression infix = (InfixExpression) condition;
+    if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
+        Expression leftOperand = infix.getLeftOperand();
+        Expression rightOperand = infix.getRightOperand();
+
+        if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral) ||
+            (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
+            System.out.println("[DEBUG] Found indirect null check in if-statement: " + condition);
+            return true;
+        }
+    }
+}
+
+    }
+
+    System.out.println("[DEBUG] Node is NOT applicable. Skipping.");
+    return false;
+}
     
-    @Override
-    public void apply(ASTNode node, ASTRewrite rewriter) {
-        // Precondition: isApplicable returned true for this node
-        AST ast = node.getAST();  // Get the AST to create new nodes
-        Expression targetExpr;
-        // Determine the target (the object being dereferenced) similar to isApplicable logic
-        if (node instanceof MethodInvocation) {
-            targetExpr = ((MethodInvocation) node).getExpression();
-        } else if (node instanceof FieldAccess) {
-            targetExpr = ((FieldAccess) node).getExpression();
-        } else if (node instanceof QualifiedName) {
-            targetExpr = ((QualifiedName) node).getQualifier();
-        } else if (node instanceof ArrayAccess) {
-            targetExpr = ((ArrayAccess) node).getArray();
-        } else {
-            // Should not happen if isApplicable is correctly used
-            return;
-        }
-        if (targetExpr == null) {
-            // Safety check: no target to null-check
-            return;
-        }
-        // Create a copy of the target expression for use in the null-check condition 
-        Expression targetExprCopy = (Expression) ASTNode.copySubtree(ast, targetExpr);
-        // Build the null-check condition: (targetExpr != null)
-        InfixExpression condition = ast.newInfixExpression();
-        condition.setLeftOperand(targetExprCopy);
-        condition.setOperator(InfixExpression.Operator.NOT_EQUALS);
-        condition.setRightOperand(ast.newNullLiteral());
-        // Create the if statement with the condition
-        IfStatement ifStatement = ast.newIfStatement();
-        ifStatement.setExpression(condition);
-        // The "then" block of the if will contain the original operation (node) as a statement
-        Block thenBlock = ast.newBlock();
-        // Find the statement to encapsulate. Usually, if node is part of an ExpressionStatement or Assignment,
-        // we want to wrap that entire statement.
-        ASTNode parentNode = node.getParent();
-        Statement origStatement;
-        if (parentNode instanceof Statement) {
-            origStatement = (Statement) parentNode;
-        } else {
-            // In unexpected cases, just treat the node itself as a statement (though normally node will be inside a Statement)
-            origStatement = (Statement) node;
-        }
-        // Copy the original statement (deep copy) to place inside the if-block
-        Statement origStatementCopy = (Statement) ASTNode.copySubtree(ast, origStatement);
-        thenBlock.statements().add(origStatementCopy);
-        ifStatement.setThenStatement(thenBlock);
-        // **Apply the replacement**: replace the original statement with the new if-statement in the AST
-        rewriter.replace(origStatement, ifStatement, null);  //&#8203;:contentReference[oaicite:2]{index=2}
+@Override
+public void apply(ASTNode node, ASTRewrite rewriter) {
+    System.out.println("[DEBUG] Processing ASTNode: " + node.getClass().getSimpleName());
+
+    AST ast = node.getAST();
+    Expression targetExpr = null;
+
+    if (node instanceof MethodInvocation) {
+        targetExpr = ((MethodInvocation) node).getExpression();
+    } else if (node instanceof FieldAccess) {
+        targetExpr = ((FieldAccess) node).getExpression();
+    } else if (node instanceof QualifiedName) {
+        targetExpr = ((QualifiedName) node).getQualifier();
+    } else if (node instanceof ArrayAccess) {
+        targetExpr = ((ArrayAccess) node).getArray();
+    } else {
+        System.out.println("[DEBUG] Node is not a dereferenceable expression.");
+        return;
     }
+
+    System.out.println("[DEBUG] Target Expression: " + targetExpr);
+
+    ASTNode parentNode = node.getParent();
+    VariableDeclarationFragment assignedVariable = null;
+    IfStatement existingIfStatement = null;
+
+    // 1️⃣ Find the variable assigned via a ternary operator
+    while (parentNode != null) {
+        if (parentNode instanceof VariableDeclarationFragment) {
+            VariableDeclarationFragment varDecl = (VariableDeclarationFragment) parentNode;
+            Expression initializer = varDecl.getInitializer();
+
+            while (initializer instanceof ParenthesizedExpression) {
+                initializer = ((ParenthesizedExpression) initializer).getExpression();
+            }
+
+            if (initializer instanceof ConditionalExpression) {
+                ConditionalExpression ternary = (ConditionalExpression) initializer;
+                if (ternary.getElseExpression() instanceof NullLiteral) {
+                    assignedVariable = varDecl;
+                    System.out.println("[DEBUG] Found ternary assignment: " + assignedVariable.getName());
+                    System.out.println("[DEBUG] Ternary condition: " + ternary.getExpression());
+                }
+            }
+            break;
+        }
+        parentNode = parentNode.getParent();
+    }
+
+    if (assignedVariable == null) {
+        System.out.println("[DEBUG] No ternary assignment found.");
+        return;
+    }
+
+// 2️⃣ Find the if-statement checking the assigned variable
+ASTNode current = assignedVariable.getParent();
+while (current != null) {
+    if (current instanceof IfStatement) {
+        IfStatement ifStmt = (IfStatement) current;
+        Expression condition = ifStmt.getExpression();
+
+        if (condition instanceof InfixExpression) {
+            InfixExpression infix = (InfixExpression) condition;
+            if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS &&
+                infix.getLeftOperand() instanceof SimpleName) {
+                
+                SimpleName varName = (SimpleName) infix.getLeftOperand();
+                if (varName.getIdentifier().equals(assignedVariable.getName().getIdentifier())) {
+                    existingIfStatement = ifStmt;
+                    System.out.println("[DEBUG] Found indirect null check in if-statement: " + condition);
+                    break;
+                }
+            }
+        }
+    }
+
+    // ✅ Instead of going up the AST, we move **forward** in the block
+    if (current.getParent() instanceof Block) {
+        Block block = (Block) current.getParent();
+        List<?> statements = block.statements();
+        int index = statements.indexOf(current);
+
+        // Move forward to find an if-statement
+        for (int i = index + 1; i < statements.size(); i++) {
+            ASTNode nextNode = (ASTNode) statements.get(i);
+            if (nextNode instanceof IfStatement) {
+                current = nextNode;
+                break;
+            }
+        }
+    } else {
+        current = current.getParent();
+    }
+}
+
+
+if (existingIfStatement != null && assignedVariable != null) {
+// Retrieve initializer and ensure it's not wrapped in a ParenthesizedExpression
+Expression initializer = assignedVariable.getInitializer();
+
+// ✅ Unwrap ParenthesizedExpression before proceeding
+while (initializer instanceof ParenthesizedExpression) {
+    initializer = ((ParenthesizedExpression) initializer).getExpression();
+}
+
+// ✅ Now, safely cast to ConditionalExpression
+if (initializer instanceof ConditionalExpression) {
+    ConditionalExpression ternary = (ConditionalExpression) initializer;
+    Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast, ternary.getExpression());
+
+    System.out.println("[DEBUG] Replacing condition: " + existingIfStatement.getExpression());
+    System.out.println("[DEBUG] New condition: " + directCheckExpr);
+
+    rewriter.replace(existingIfStatement.getExpression(), directCheckExpr, null);
+} else {
+    System.out.println("[ERROR] Expected ConditionalExpression but found: " + initializer.getClass().getSimpleName());
+}
+}
+
+}
+
+
+/** Helper function: Checks if an if-condition indirectly checks a variable assigned via a ternary */
+private boolean isIndirectNullCheck(Expression condition, SimpleName assignedVariable) {
+    if (condition instanceof InfixExpression) {
+        InfixExpression infixExpr = (InfixExpression) condition;
+        return infixExpr.getOperator() == InfixExpression.Operator.NOT_EQUALS &&
+               infixExpr.getLeftOperand() instanceof SimpleName &&
+               ((SimpleName) infixExpr.getLeftOperand()).getIdentifier().equals(assignedVariable.getIdentifier());
+    }
+    return false;
+}
+
 }
 
