@@ -21,6 +21,8 @@ public class RefactoringEngine {
                 refactoring = new AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull);
             } else if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
                 refactoring = new AddNullCheckBeforeDereferenceRefactoring();
+            } else if (name.equals("GeneralizedNullCheck")) {
+                refactoring = new GeneralizedNullCheck();
             /*} else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
                 refactoring = new AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull, expressionsPossiblyNull);*/
             } else if (name.equals("AddNullnessAnnotationsRefactoring")) {
@@ -53,6 +55,9 @@ public String applyRefactorings(CompilationUnit cu, String sourceCode) {
     ASTRewrite rewriter = ASTRewrite.create(ast);
 
     for (Refactoring refactoring : refactorings) {
+    if (refactoring instanceof GeneralizedNullCheck) {
+        ((GeneralizedNullCheck) refactoring).traverseAST(cu);
+    }
         cu.accept(new ASTVisitor() {
             @Override
             public void preVisit(ASTNode node) {

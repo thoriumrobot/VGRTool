@@ -4,7 +4,7 @@ class Test {
 		Object exceptionHandlerObject = null;
 		Method exceptionHandlerMethod = null;
 
-		if (handlerMethod != null) {
+		if (handlerType != null) {
 			exceptionHandlerObject = handlerMethod.getBean();
 		}
 	}
