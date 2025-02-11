@@ -15,16 +15,16 @@ public class RefactoringEngine {
 
         for (String name : refactoringNames) {
             Refactoring refactoring = null;
-            if (name.equals("WrapWithCheckNotNullRefactoring")) {
+            /*if (name.equals("WrapWithCheckNotNullRefactoring")) {
                 refactoring = new WrapWithCheckNotNullRefactoring(expressionsPossiblyNull);
             } else if (name.equals("AddNullChecksForNullableReferences")) {
                 refactoring = new AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull);
-            } else if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
+            } else*/ if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
                 refactoring = new AddNullCheckBeforeDereferenceRefactoring();
-            } else if (name.equals("GeneralizedNullCheck")) {
+            /*} else if (name.equals("GeneralizedNullCheck")) {
                 refactoring = new GeneralizedNullCheck();
-            /*} else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
-                refactoring = new AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull, expressionsPossiblyNull);*/
+            } else if (name.equals("AddNullCheckBeforeMethodCallRefactoring")) {
+                refactoring = new AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull, expressionsPossiblyNull);
             } else if (name.equals("AddNullnessAnnotationsRefactoring")) {
                 refactoring = new AddNullnessAnnotationsRefactoring();
             } else if (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) {
@@ -34,7 +34,7 @@ public class RefactoringEngine {
             } else if (name.equals("NullabilityRefactoring")) {
                 refactoring = new NullabilityRefactoring();
             } else if (name.equals("SimplifyNullCheckRefactoring")) {
-                refactoring = new SimplifyNullCheckRefactoring();
+                refactoring = new SimplifyNullCheckRefactoring();*/
             } else {
                 System.err.println("Unknown refactoring: " + name);
             }
@@ -55,9 +55,9 @@ public String applyRefactorings(CompilationUnit cu, String sourceCode) {
     ASTRewrite rewriter = ASTRewrite.create(ast);
 
     for (Refactoring refactoring : refactorings) {
-    if (refactoring instanceof GeneralizedNullCheck) {
+    /*if (refactoring instanceof GeneralizedNullCheck) {
         ((GeneralizedNullCheck) refactoring).traverseAST(cu);
-    }
+    }*/
         cu.accept(new ASTVisitor() {
             @Override
             public void preVisit(ASTNode node) {
