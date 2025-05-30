@@ -1,15 +1,25 @@
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.file.*;
-import java.util.*;
-import org.eclipse.jdt.core.dom.*;
-import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.jface.text.Document;
-import org.eclipse.text.edits.TextEdit;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.ASTVisitor;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldAccess;
+import org.eclipse.jdt.core.dom.MethodInvocation;
 
 public class VGRTool {
+    private static final Logger logger = Logger.getLogger(VGRTool.class.getName());
 
     public static void main(String[] args) {
         if (args.length < 2) {
@@ -32,7 +42,7 @@ public class VGRTool {
 
         try {
             // Step 1: Collect all Java files in the target directory
-            List<File> javaFiles = findJavaFiles(targetDir);
+            List<File> javaFiles = getJavaFiles(targetDir);
 
             // Step 2: Process each Java file using the selected refactoring module
             for (File file : javaFiles) {
@@ -41,16 +51,16 @@ public class VGRTool {
             }
 
             System.out.println("Refactoring completed successfully!");
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            logger.log(Level.WARNING, e.toString());
         }
     }
 
-    private static List<File> findJavaFiles(String directory) throws IOException {
+    private static List<File> getJavaFiles(String directory) throws IOException {
         List<File> javaFiles = new ArrayList<>();
-        Files.walk(Paths.get(directory))
-             .filter(path -> path.toString().endsWith(".java"))
-             .forEach(path -> javaFiles.add(path.toFile()));
+
+        Files.walk(Paths.get(directory)).filter(path -> path.toString().endsWith(".java"))
+                .forEach(path -> javaFiles.add(path.toFile()));
         return javaFiles;
     }
 
@@ -58,10 +68,13 @@ public class VGRTool {
         try {
             // Step 3: Read the file content
             String content = Files.readString(file.toPath());
-            Document document = new Document(content);
+
+            // Unsure what this line was meant for?
+            // Document document = new Document(content);
 
             // Step 4: Parse the content into an AST
-            ASTParser parser = ASTParser.newParser(AST.JLS15); // Use Java 17
+            @SuppressWarnings("deprecation")
+            ASTParser parser = ASTParser.newParser(AST.JLS17); // Use Java 17
             parser.setSource(content.toCharArray());
             CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
@@ -79,9 +92,9 @@ public class VGRTool {
             Files.writeString(file.toPath(), refactoredSourceCode);
             System.out.println("Refactored file saved: " + file.getPath());
 
-        } catch (Exception e) {
-            System.err.println("Error processing file: " + file.getPath());
-            e.printStackTrace();
+        } catch (IOException e) {
+            String logString = "Error processing file: " + file.getPath();
+            logger.log(Level.WARNING, logString);
         }
     }
 
