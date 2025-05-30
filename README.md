@@ -11,6 +11,6 @@ Verification-Guided Refactoring Tool for refactoring implicit null checks in Jav
 This will apply the provided refactorings to the Java project at <sourceDirPath>
 
 ### To Test
-`./gradle test`
+`./gradlew test`
 
 This will run the test suite.
