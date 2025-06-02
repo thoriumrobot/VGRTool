@@ -1,11 +1,15 @@
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jdt.core.dom.AST;
@@ -15,15 +19,27 @@ import org.eclipse.jdt.core.dom.Expression;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class RefactoringEngineTest {
     // Configure the refactoring engine
     List<String> refactorings = Collections.singletonList("AddNullCheckBeforeDereferenceRefactoring");
 
+    @SuppressWarnings("unused")
+    private static Stream<String> getTestFiles() {
+        ClassLoader classLoader = RefactoringEngineTest.class.getClassLoader();
+        URL resource = Objects.requireNonNull(classLoader.getResource("inputs"));
+        File folder = null;
+        try {
+            folder = new File(resource.toURI());
+        } catch (URISyntaxException e) {
+            fail("URISyntaxException on inputs folder:\n" + e.getMessage());
+        }
+        return Stream.of(Objects.requireNonNull(folder).listFiles()).map(File::getName);
+    }
+
     @ParameterizedTest
-    @ValueSource(strings = { "TernaryBooleanFlagTest.java", "BooleanFlagTest.java", "NewContainerTest.java",
-            "SeperateVariableTest.java", "NestedNullCheck.java", "SentinelTest.java" })
+    @MethodSource("getTestFiles")
     public void test(String testFileName) {
         try {
             String sourceCode = readFile("inputs/" + testFileName);
