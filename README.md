@@ -1,5 +1,16 @@
-Example command:
+Verification-Guided Refactoring Tool for refactoring implicit null checks in Java programs.
 
-./gradlew run --args="../spring-framework/ AddNullCheckBeforeDereferenceRefactoring"
+# Running
+## Normal Usage
+`java VGRTool <sourceDirPath> <refactoringModule>`
 
-This will apply the indirect check refactorings to the Java project at ../spring-framework/
+## With Gradle
+### To Run
+`./gradlew run --args="<sourceDirPath> <refactoringModule>"`
+
+This will apply the provided refactorings to the Java project at <sourceDirPath>
+
+### To Test
+`./gradlew test`
+
+This will run the test suite.

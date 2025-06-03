@@ -1,63 +1,75 @@
-import org.eclipse.jdt.core.dom.*;
-import org.junit.Test;
-import java.util.*;
-import static org.junit.Assert.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import org.apache.commons.io.IOUtils;
+import org.eclipse.jdt.core.dom.AST;
+import org.eclipse.jdt.core.dom.ASTParser;
+import org.eclipse.jdt.core.dom.CompilationUnit;
+import org.eclipse.jdt.core.dom.Expression;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class RefactoringEngineTest {
+	// Configure the refactoring engine
+	List<String> refactorings = Collections.singletonList("AddNullCheckBeforeDereferenceRefactoring");
 
-    @Test
-    public void testReplaceIndirectNullCheck() {
-        // Input Java source before refactoring
-        String sourceCode = 
-            "class Test {\n" +
-            "    void test() {\n" +
-            "        Class<?> handlerType = (handlerMethod != null ? handlerMethod.getBeanType() : null);\n" +
-            "        Object exceptionHandlerObject = null;\n" +
-            "        Method exceptionHandlerMethod = null;\n" +
-            "\n" +
-            "        if (handlerType != null) {\n" +
-            "            exceptionHandlerObject = handlerMethod.getBean();\n" +
-            "        }\n" +
-            "    }\n" +
-            "}";
+	@SuppressWarnings("unused")
+	private static Stream<String> getTestFiles() {
+		ClassLoader classLoader = RefactoringEngineTest.class.getClassLoader();
+		URL resource = Objects.requireNonNull(classLoader.getResource("inputs"));
+		File folder = null;
+		try {
+			folder = new File(resource.toURI());
+		} catch (URISyntaxException e) {
+			fail("URISyntaxException on inputs folder:\n" + e.getMessage());
+		}
+		return Stream.of(Objects.requireNonNull(folder).listFiles()).map(File::getName);
+	}
 
-        // Expected output after refactoring
-        String expectedOutput =
-            "class Test {\n" +
-            "    void test() {\n" +
-            "        Class<?> handlerType = (handlerMethod != null ? handlerMethod.getBeanType() : null);\n" +
-            "        Object exceptionHandlerObject = null;\n" +
-            "        Method exceptionHandlerMethod = null;\n" +
-            "\n" +
-            "        if (handlerMethod != null) {\n" + // Expected fix: Check handlerMethod directly
-            "            exceptionHandlerObject = handlerMethod.getBean();\n" +
-            "        }\n" +
-            "    }\n" +
-            "}";
+	@ParameterizedTest
+	@MethodSource("getTestFiles")
+	public void test(String testFileName) {
+		try {
+			String sourceCode = readFile("inputs/" + testFileName);
+			String expectedOutput = readFile("outputs/" + testFileName);
 
-        // Parse the source code into an AST
-        CompilationUnit cu = parseSource(sourceCode);
-        
-        // Configure the refactoring engine
-        List<String> refactorings = Collections.singletonList("AddNullCheckBeforeDereferenceRefactoring");
-        Set<Expression> expressionsPossiblyNull = new HashSet<>();
-        RefactoringEngine engine = new RefactoringEngine(refactorings, expressionsPossiblyNull);
+			Set<Expression> expressionsPossiblyNull = new HashSet<>();
+			RefactoringEngine engine = new RefactoringEngine(refactorings, expressionsPossiblyNull);
 
-        // Apply refactoring
-        String result = engine.applyRefactorings(cu, sourceCode);
+			@SuppressWarnings("deprecation")
+			ASTParser parser = ASTParser.newParser(AST.JLS17); // Use appropriate JLS version
+			parser.setSource(sourceCode.toCharArray());
+			parser.setKind(ASTParser.K_COMPILATION_UNIT);
+			parser.setResolveBindings(false);
 
-        // Assert that the output matches the expected transformation
-        assertEquals(expectedOutput, result);
-    }
+			// Parse the source code into an AST
+			CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-    /**
-     * Parses Java source code into an AST CompilationUnit.
-     */
-    private CompilationUnit parseSource(String source) {
-        ASTParser parser = ASTParser.newParser(AST.JLS17); // Use appropriate JLS version
-        parser.setSource(source.toCharArray());
-        parser.setKind(ASTParser.K_COMPILATION_UNIT);
-        parser.setResolveBindings(false);
-        return (CompilationUnit) parser.createAST(null);
-    }
+			// Apply refactoring
+			String result = engine.applyRefactorings(cu, sourceCode);
+
+			// Assert that the output matches the expected transformation
+			assertEquals(expectedOutput, result);
+		} catch (IOException e) {
+			fail("IOException on file " + testFileName + ": " + e.getMessage());
+		}
+	}
+
+	private String readFile(String filename) throws IOException {
+		InputStream fileStream = Objects.requireNonNull(this.getClass().getResourceAsStream(filename),
+				"Test input file not found: " + filename);
+		return IOUtils.toString(fileStream, StandardCharsets.UTF_8);
+	}
 }
