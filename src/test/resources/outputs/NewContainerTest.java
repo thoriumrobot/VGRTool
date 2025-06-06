@@ -9,7 +9,7 @@ public class NewContainerTest {
         boolean hasItems = (items != null && !items.isEmpty());
 
         // Indirectly implies items != null
-        if (items != null && !items.isEmpty()) {
+        if ((items != null && !items.isEmpty())) {
             TreeSet<?> set = new TreeSet<>(items);
         }
     }

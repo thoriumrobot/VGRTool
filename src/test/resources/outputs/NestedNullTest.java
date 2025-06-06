@@ -1,16 +1,17 @@
 public class NestedNullTest {
-    public boolean checkNull(String str) {
+    String str = "Hello World";
+
+    public boolean checkNull() {
         return str != null;
     }
 
     public void test() {
-        String str = "Hello World";
 
         if (str != null) {
             ;
         }
 
-        if (!(str != null)) {
+        if (str == null) {
             ;
         }
     }
