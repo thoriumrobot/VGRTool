@@ -14,11 +14,15 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
-// (Assume Refactoring is an abstract base class provided in the same framework)
+/**
+ * This class represents a refactoring in which boolean flags are replaced with
+ * explicit null checks
+ */
 public class BooleanFlagRefactoring extends Refactoring {
 
 	/**
-	 * List of variable names idnetified as boolean flags
+	 * List of variable names identified as boolean flags, along with their
+	 * corresponding initializer expression
 	 */
 	private final Dictionary<String, Expression> booleanFlags;
 
@@ -26,17 +30,6 @@ public class BooleanFlagRefactoring extends Refactoring {
 	public BooleanFlagRefactoring() {
 		super();
 		this.booleanFlags = new Hashtable<>();
-	}
-
-	private boolean isFlag(SimpleName varName) {
-		String name = varName.toString();
-		return booleanFlags.get(name) != null;
-	}
-
-	private Expression getMatchingExpr(SimpleName varName) {
-		String name = varName.toString();
-		booleanFlags.get(name);
-		return booleanFlags.get(name);
 	}
 
 	private boolean isApplicable(SimpleName varName, Expression expr, Expression originalExpression) {
@@ -52,23 +45,31 @@ public class BooleanFlagRefactoring extends Refactoring {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 				if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-						|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-					System.out.println("[DEBUG] Found boolean flag in VariableDeclarationStatement: Variable " + varName
-							+ " with initializer expression " + expr);
-					System.out.println("[DEBUG] Adding key " + varName + " to dict with value " + originalExpression);
+						|| (rightOperand instanceof SimpleName
+								&& leftOperand instanceof NullLiteral)) {
+					System.out.println(
+							"[DEBUG] Found boolean flag in VariableDeclarationStatement: Variable "
+									+ varName
+									+ " with initializer expression " + expr);
+					System.out.println("[DEBUG] Adding key " + varName + " to dict with value "
+							+ originalExpression);
 					booleanFlags.put(varName.toString(), originalExpression);
 					return true;
 				}
 			}
 			if (infix.getOperator().toString().equals("&&")) {
 				System.out.println(2);
-				boolean leftApplicable = isApplicable(varName, infix.getLeftOperand(), originalExpression);
-				boolean rightApplicable = isApplicable(varName, infix.getRightOperand(), originalExpression);
+				boolean leftApplicable = isApplicable(varName, infix.getLeftOperand(),
+						originalExpression);
+				boolean rightApplicable = isApplicable(varName, infix.getRightOperand(),
+						originalExpression);
 				return (leftApplicable && rightApplicable);
 			} else if (infix.getOperator().toString().equals("||")) {
 				System.out.println(3);
-				boolean leftApplicable = isApplicable(varName, infix.getLeftOperand(), originalExpression);
-				boolean rightApplicable = isApplicable(varName, infix.getRightOperand(), originalExpression);
+				boolean leftApplicable = isApplicable(varName, infix.getLeftOperand(),
+						originalExpression);
+				boolean rightApplicable = isApplicable(varName, infix.getRightOperand(),
+						originalExpression);
 				return (leftApplicable || rightApplicable);
 			}
 			System.out.println(4 + " " + infix.getOperator());
@@ -88,13 +89,14 @@ public class BooleanFlagRefactoring extends Refactoring {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 
-				if ((leftOperand instanceof SimpleName lhs && isFlag((SimpleName) lhs))
-						|| (rightOperand instanceof SimpleName rhs && isFlag((SimpleName) rhs))) {
+				if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
+						|| (rightOperand instanceof SimpleName rhs
+								&& booleanFlags.get(rhs.toString()) != null)) {
 					System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
 					return true;
 				}
 			}
-			if (condition instanceof SimpleName sn && isFlag(sn)) {
+			if (condition instanceof SimpleName sn && booleanFlags.get(sn.toString()) != null) {
 				System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
 				return true;
 			}
@@ -113,7 +115,8 @@ public class BooleanFlagRefactoring extends Refactoring {
 			boolean flagFound = false;
 			for (int i = 0; i < stmt.fragments().size(); ++i) {
 
-				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
+				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments()
+						.get(i);
 				System.out.println("Fragment " + i + ": " + frag);
 
 				SimpleName varName = frag.getName();
@@ -137,18 +140,21 @@ public class BooleanFlagRefactoring extends Refactoring {
 				Expression rightOperand = infix.getRightOperand();
 
 				if ((leftOperand instanceof SimpleName var)) {
-					Expression newExpr = getMatchingExpr(var);
-					System.out.println("[DEBUG] Replacing expression " + leftOperand + " with expression " + newExpr);
+					Expression newExpr = booleanFlags.get(var.toString());
+					System.out.println("[DEBUG] Replacing expression " + leftOperand
+							+ " with expression " + newExpr);
 					rewriter.replace(leftOperand, newExpr, null);
 				} else if (rightOperand instanceof SimpleName var) {
-					Expression newExpr = getMatchingExpr(var);
-					System.out.println("[DEBUG] Replacing expression " + rightOperand + " with expression " + newExpr);
+					Expression newExpr = booleanFlags.get(var.toString());
+					System.out.println("[DEBUG] Replacing expression " + rightOperand
+							+ " with expression " + newExpr);
 					rewriter.replace(rightOperand, newExpr, null);
 				}
 			}
 			if (condition instanceof SimpleName sn) {
-				Expression newExpr = getMatchingExpr(sn);
-				System.out.println("[DEBUG] Replacing SimpleName " + sn + " with expression " + newExpr);
+				Expression newExpr = booleanFlags.get(sn.toString());
+				System.out.println(
+						"[DEBUG] Replacing SimpleName " + sn + " with expression " + newExpr);
 				rewriter.replace(sn, newExpr, null);
 
 			}

@@ -17,24 +17,15 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
-// (Assume Refactoring is an abstract base class provided in the same framework)
+/**
+ * This class represents a refactoring in which explicit null checks are added
+ * before a value dereference
+ */
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
-	/**
-	 * Optional list of expressions identified as possibly null (to guide
-	 * applicability)
-	 */
-	@SuppressWarnings("unused")
-	private List<Expression> possiblyNullExpressions;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
-		super(); // Call to base class (if it expects a name/ID)
-	}
-
-	/** Constructor that accepts a list of possibly-null expressions */
-	public AddNullCheckBeforeDereferenceRefactoring(List<Expression> possiblyNullExpressions) {
 		super();
-		this.possiblyNullExpressions = possiblyNullExpressions;
 	}
 
 	@Override
@@ -55,8 +46,10 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				Expression rightOperand = infix.getRightOperand();
 
 				if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-						|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-					System.out.println("[DEBUG] Found indirect null check in if-statement: " + condition);
+						|| (rightOperand instanceof SimpleName
+								&& leftOperand instanceof NullLiteral)) {
+					System.out.println("[DEBUG] Found indirect null check in if-statement: "
+							+ condition);
 					return true;
 				}
 			}
@@ -100,8 +93,10 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				if (initializer instanceof ConditionalExpression ternary) {
 					if (ternary.getElseExpression() instanceof NullLiteral) {
 						assignedVariable = varDecl;
-						System.out.println("[DEBUG] Found ternary assignment: " + assignedVariable.getName());
-						System.out.println("[DEBUG] Ternary condition: " + ternary.getExpression());
+						System.out.println("[DEBUG] Found ternary assignment: "
+								+ assignedVariable.getName());
+						System.out.println("[DEBUG] Ternary condition: "
+								+ ternary.getExpression());
 					}
 				}
 				break;
@@ -125,9 +120,12 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 							&& infix.getLeftOperand() instanceof SimpleName) {
 
 						SimpleName varName = (SimpleName) infix.getLeftOperand();
-						if (varName.getIdentifier().equals(assignedVariable.getName().getIdentifier())) {
+						if (varName.getIdentifier()
+								.equals(assignedVariable.getName().getIdentifier())) {
 							existingIfStatement = ifStmt;
-							System.out.println("[DEBUG] Found indirect null check in if-statement: " + condition);
+							System.out.println(
+									"[DEBUG] Found indirect null check in if-statement: "
+											+ condition);
 							break;
 						}
 					}
@@ -163,9 +161,11 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 			// ✅ Now, safely cast to ConditionalExpression
 			if (initializer instanceof ConditionalExpression ternary) {
-				Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast, ternary.getExpression());
+				Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast,
+						ternary.getExpression());
 
-				System.out.println("[DEBUG] Replacing condition: " + existingIfStatement.getExpression());
+				System.out.println(
+						"[DEBUG] Replacing condition: " + existingIfStatement.getExpression());
 				System.out.println("[DEBUG] New condition: " + directCheckExpr);
 
 				rewriter.replace(existingIfStatement.getExpression(), directCheckExpr, null);
@@ -175,20 +175,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 							+ initializer.getClass().getSimpleName());
 			}
 		}
-	}
-
-	/**
-	 * Helper function: Checks if an if-condition indirectly checks a variable
-	 * assigned via a ternary
-	 */
-	@SuppressWarnings("unused")
-	private boolean isIndirectNullCheck(Expression condition, SimpleName assignedVariable) {
-		if (condition instanceof InfixExpression infixExpr) {
-			return infixExpr.getOperator() == InfixExpression.Operator.NOT_EQUALS
-					&& infixExpr.getLeftOperand() instanceof SimpleName && ((SimpleName) infixExpr.getLeftOperand())
-							.getIdentifier().equals(assignedVariable.getIdentifier());
-		}
-		return false;
 	}
 
 }

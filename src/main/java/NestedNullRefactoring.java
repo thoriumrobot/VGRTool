@@ -18,14 +18,18 @@ import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
+/**
+ * This class represents a refactoring in which calls to one-line methods which
+ * test for nullness of a variable are replaced with an explicit check
+ */
 public class NestedNullRefactoring extends Refactoring {
+	/**
+	 * List of variable names idnetified as boolean flags, along with their
+	 * corresponding initializer expression
+	 */
 	private final Dictionary<String, Expression> applicableMethods;
 
-	private boolean isApplicableInvocation(MethodInvocation invocation) {
-		String invocationName = invocation.toString();
-		return applicableMethods.get(invocationName) != null;
-	}
-
+	/** Default constructor */
 	public NestedNullRefactoring() {
 		applicableMethods = new Hashtable<>();
 	}
@@ -39,14 +43,15 @@ public class NestedNullRefactoring extends Refactoring {
 
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof PrefixExpression prefix) {
-			if (prefix.getOperand() instanceof MethodInvocation invocation && isApplicableInvocation(invocation)) {
+			if (prefix.getOperand() instanceof MethodInvocation invocation
+					&& applicableMethods.get(invocation.toString()) != null) {
 				System.out.println("[DEBUG] Invocation of appliccable method found");
 				return true;
 			}
 			return false;
 		}
 		if (node instanceof MethodInvocation invocation) {
-			if (isApplicableInvocation(invocation)) {
+			if (applicableMethods.get(invocation.toString()) != null) {
 				System.out.println("[DEBUG] Invocation of appliccable method found");
 				return true;
 			}
@@ -116,7 +121,8 @@ public class NestedNullRefactoring extends Refactoring {
 			Expression expr = (applicableMethods.get(invocationName));
 			System.out.println("Replacing \n" + invocation + "\nWith \n" + expr);
 			rewriter.replace(invocation, expr, null);
-		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
+		} else if (node instanceof PrefixExpression prefix
+				&& prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
 			String invocationName = invocation.toString();
 			Expression expr = (applicableMethods.get(invocationName));

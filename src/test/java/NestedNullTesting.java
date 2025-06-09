@@ -24,10 +24,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * Class to perform JUnit tests on the NestedNullRefactoring refactoring module
+ * 
+ * @see NestedNullRefactoring
+ */
 public class NestedNullTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testEngine.testSingleRefactoring(input, expectedOutput, "NestedNullRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, "NestedNullRefactoring");
 	}
 
 	@Test

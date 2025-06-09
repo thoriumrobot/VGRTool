@@ -14,54 +14,33 @@ import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
 import org.eclipse.text.edits.TextEdit;
 
+/**
+ * Class to run VGRs on an AST
+ */
 public class RefactoringEngine {
-	private static final Logger logger = Logger.getLogger(VGRTool.class.getName());
-
+	/**
+	 * List of refactorings to apply
+	 */
 	private final List<Refactoring> refactorings;
-	@SuppressWarnings("unused")
-	private final Set<Expression> expressionsPossiblyNull;
 
-	public RefactoringEngine(List<String> refactoringNames, Set<Expression> expressionsPossiblyNull) {
-		this.expressionsPossiblyNull = expressionsPossiblyNull;
+	/**
+	 * Default Constructor
+	 * 
+	 * @param refactoringNames A list of Refactorings to use
+	 */
+	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
-			Refactoring refactoring = null;
 			switch (name) {
 				case "AddNullCheckBeforeDereferenceRefactoring" ->
-					refactoring = new AddNullCheckBeforeDereferenceRefactoring();
-				case "BooleanFlagRefactoring" -> refactoring = new BooleanFlagRefactoring();
-				case "NestedNullRefactoring" -> refactoring = new NestedNullRefactoring();
-				case "SentinelRefactoring" -> refactoring = new SentinelRefactoring();
-				case "SeperateVariableRefactoring" -> refactoring = new SeperateVariableRefactoring();
+					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
+				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
+				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
+				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				case "SeperateVariableRefactoring" ->
+					refactorings.add(new SeperateVariableRefactoring());
 				default -> System.err.println("Unknown refactoring: " + name);
-				/*
-				 * if (name.equals("WrapWithCheckNotNullRefactoring")) { refactoring = new
-				 * WrapWithCheckNotNullRefactoring(expressionsPossiblyNull); } else if
-				 * (name.equals("AddNullChecksForNullableReferences")) { refactoring = new
-				 * AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull); }
-				 * else if (name.equals("GeneralizedNullCheck")) { refactoring = new
-				 * GeneralizedNullCheck(); } else if
-				 * (name.equals("AddNullCheckBeforeMethodCallRefactoring")) { refactoring = new
-				 * AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull,
-				 * expressionsPossiblyNull); } else if
-				 * (name.equals("AddNullnessAnnotationsRefactoring")) { refactoring = new
-				 * AddNullnessAnnotationsRefactoring(); } else if
-				 * (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) { refactoring
-				 * = new IntroduceLocalVariableAndNullCheckRefactoring(expressionsPossiblyNull);
-				 * } else if (name.equals("IntroduceLocalVariableWithNullCheckRefactoring")) {
-				 * refactoring = new
-				 * IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull); }
-				 * else if (name.equals("NullabilityRefactoring")) { refactoring = new
-				 * NullabilityRefactoring(); } else if
-				 * (name.equals("SimplifyNullCheckRefactoring")) { refactoring = new
-				 * SimplifyNullCheckRefactoring();
-				 */
-
-			}
-
-			if (refactoring != null) {
-				refactorings.add(refactoring);
 			}
 		}
 
@@ -71,15 +50,18 @@ public class RefactoringEngine {
 		}
 	}
 
+	/**
+	 * Applies all refactorings in {@value refactorings} to a given source file
+	 * 
+	 * @param cu         The compilation unit to use
+	 * @param sourceCode A string representing the filepath of the source code to
+	 *                   refactor
+	 */
 	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
 		AST ast = cu.getAST();
 		ASTRewrite rewriter = ASTRewrite.create(ast);
 
 		for (Refactoring refactoring : refactorings) {
-			/*
-			 * if (refactoring instanceof GeneralizedNullCheck) { ((GeneralizedNullCheck)
-			 * refactoring).traverseAST(cu); }
-			 */
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
@@ -99,7 +81,7 @@ public class RefactoringEngine {
 		try {
 			edits.apply(document);
 		} catch (MalformedTreeException | org.eclipse.jface.text.BadLocationException e) {
-			logger.log(Level.WARNING, e.toString());
+			System.out.println(e.toString());
 		}
 
 		return document.get();

@@ -24,10 +24,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * Class to perform JUnit tests on the SentinelTesting refactoring module
+ * 
+ * @see SentinelTesting
+ */
 public class SentinelTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testEngine.testSingleRefactoring(input, expectedOutput, "SentinelRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, "SentinelRefactoring");
 	}
 
 	@Test

@@ -24,10 +24,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+/**
+ * Class to perform JUnit tests on the SeperateVariableRefactoring refactoring
+ * module
+ * 
+ * @see SeperateVariableRefactoring
+ */
 public class SeperateVariableTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testEngine.testSingleRefactoring(input, expectedOutput, "SeperateVariableRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, "SeperateVariableRefactoring");
 	}
 
 	@Test
