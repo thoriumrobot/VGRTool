@@ -49,7 +49,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		if (node instanceof IfStatement ifStmt) {
 			Expression condition = ifStmt.getExpression();
 			if (condition instanceof InfixExpression infix
-					&& infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
+					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
+							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 
@@ -151,7 +152,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			}
 		}
 
-		if (existingIfStatement != null && assignedVariable != null) {
+		if (existingIfStatement != null) {
 			// Retrieve initializer and ensure it's not wrapped in a ParenthesizedExpression
 			Expression initializer = assignedVariable.getInitializer();
 
