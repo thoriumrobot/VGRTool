@@ -39,6 +39,9 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return booleanFlags.get(name);
 	}
 
+	/**
+	 * Recursive function to go through
+	 */
 	private boolean isApplicable(SimpleName varName, Expression expr, Expression originalExpression) {
 		if (expr instanceof ParenthesizedExpression pExpr) {
 			isApplicable(varName, pExpr.getExpression(), originalExpression);
@@ -80,29 +83,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	public boolean isApplicable(ASTNode node) {
 		System.out.println("[DEBUG] Checking if node is applicable: " + node.getClass().getSimpleName());
 
-		if (node instanceof IfStatement ifStmt) {
-			Expression condition = ifStmt.getExpression();
-			if (condition instanceof InfixExpression infix
-					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
-				Expression leftOperand = infix.getLeftOperand();
-				Expression rightOperand = infix.getRightOperand();
-
-				if ((leftOperand instanceof SimpleName lhs && isFlag((SimpleName) lhs))
-						|| (rightOperand instanceof SimpleName rhs && isFlag((SimpleName) rhs))) {
-					System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
-					return true;
-				}
-			}
-			if (condition instanceof SimpleName sn && isFlag(sn)) {
-				System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
-				return true;
-			}
-			return false;
-		}
-
 		if (node instanceof VariableDeclarationStatement stmt) {
-			System.out.println(-1);
 
 			Type stmtType = stmt.getType();
 			boolean isBooleanDeclaration = (stmtType.isPrimitiveType()
@@ -123,6 +104,30 @@ public class BooleanFlagRefactoring extends Refactoring {
 			}
 			return flagFound;
 		}
+
+		// 2. Check if node is an IfStatement with a boolean flag as part of it's
+		// conditional expression
+		if (node instanceof IfStatement ifStmt) {
+			Expression condition = ifStmt.getExpression();
+			if (condition instanceof InfixExpression infix
+					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
+							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
+				Expression leftOperand = infix.getLeftOperand();
+				Expression rightOperand = infix.getRightOperand();
+
+				if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
+						|| (rightOperand instanceof SimpleName rhs
+								&& booleanFlags.get(rhs.toString()) != null)) {
+					System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
+					return true;
+				}
+			}
+			if (condition instanceof SimpleName sn && booleanFlags.get(sn.toString()) != null) {
+				System.out.println("[DEBUG] Found booleanflag in if-statement: " + condition);
+				return true;
+			}
+		}
+
 		return false;
 	}
 
