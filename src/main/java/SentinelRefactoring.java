@@ -12,6 +12,7 @@ import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
+import org.eclipse.jdt.core.dom.NumberLiteral;
 import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -22,20 +23,12 @@ public class SentinelRefactoring extends Refactoring {
 	private final Dictionary<String, Sentinel> sentinels;
 
 	protected class Sentinel {
-		private SimpleName varName;
+		private SimpleName sentinelName;
+		private SimpleName VarName;
 		private String nullValue;
 		private String notNullValue;
-		private Assignment.Operator operator;
 
 		public Sentinel() {
-		}
-
-		public String toString() {
-			return "Sentinel: \n\tnullValue: " + nullValue + "\n\tnotNullValue: " + notNullValue;
-		}
-
-		public SimpleName getVarName() {
-			return this.varName;
 		}
 
 		public String getNullValue() {
@@ -46,24 +39,32 @@ public class SentinelRefactoring extends Refactoring {
 			return this.notNullValue;
 		}
 
-		public Assignment.Operator getOperator() {
-			return this.operator;
+		public void setNullCheck(String nullValue) {
+			this.nullValue = nullValue;
 		}
 
-		public SimpleName setVarName(SimpleName varName) {
-			return this.varName = varName;
+		public void setNotNullCheck(String notNullValue) {
+			this.notNullValue = notNullValue;
 		}
 
-		public void setNullValue(String val) {
-			this.nullValue = val;
+		public SimpleName getSentinelName() {
+			return this.sentinelName;
 		}
 
-		public void setNotNullValue(String val) {
-			this.notNullValue = val;
+		public SimpleName setSentinelName(SimpleName sentinelName) {
+			return this.sentinelName = sentinelName;
 		}
 
-		public void setOperator(Assignment.Operator operator) {
-			this.operator = operator;
+		public SimpleName getVarName() {
+			return this.VarName;
+		}
+
+		public SimpleName setVarName(SimpleName VarName) {
+			return this.VarName = VarName;
+		}
+
+		public String toString() {
+			return "Sentinel: \n\tnullValue: " + nullValue + "\n\tnotNullValue: " + notNullValue;
 		}
 	}
 
@@ -72,134 +73,207 @@ public class SentinelRefactoring extends Refactoring {
 		this.sentinels = new Hashtable<>();
 	}
 
-	public void addSentinel() {
-
-	}
-
 	@Override
 	public boolean isApplicable(ASTNode node) {
-		if (node instanceof IfStatement ifStmt) {
-			System.out.println("[DEBUG] If-statement");
-			Expression condition = ifStmt.getExpression();
-			if (condition instanceof InfixExpression infix
-					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
-				Expression leftOperand = infix.getLeftOperand();
-				Expression rightOperand = infix.getRightOperand();
+		if (!(node instanceof IfStatement ifStmt)) {
+			return false;
+		}
+		List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
+		for (Expression expression : exprs) {
 
-				if ((leftOperand instanceof SimpleName lhs && sentinels.get(lhs.toString()) != null)
-						|| (rightOperand instanceof SimpleName rhs
-								&& sentinels.get(rhs.toString()) != null)) {
-					System.out.println("[DEBUG] Found sentinel in if-statement: " + condition);
-					return true;
-				}
+			System.out.println(-5);
+			if (!(expression instanceof InfixExpression infix)) {
+				return false;
 			}
+
+			System.out.println(-4);
+			Expression leftOperand = infix.getLeftOperand();
+			Expression rightOperand = infix.getRightOperand();
+			InfixExpression.Operator operator = infix.getOperator();
+
+			// Check if the condition does a check on an existing sentinel
+			boolean isEqualityCheck = ((operator == InfixExpression.Operator.NOT_EQUALS
+					|| operator == InfixExpression.Operator.EQUALS));
+			boolean usesSentinel = ((leftOperand instanceof SimpleName lhs && sentinels.get(lhs.toString()) != null)
+					|| (rightOperand instanceof SimpleName rhs && sentinels.get(rhs.toString()) != null));
+			if (isEqualityCheck && usesSentinel) {
+				return true;
+			}
+
+			System.out.println(-3);
+
+			// Check if condition uses a null check
+			SimpleName varName = null;
+			if ((leftOperand instanceof SimpleName vName
+					&& rightOperand instanceof NullLiteral)) {
+				varName = vName;
+			} else if ((rightOperand instanceof SimpleName vName
+					&& leftOperand instanceof NullLiteral)) {
+				varName = vName;
+			} else {
+				return false;
+			}
+
+			System.out.println(-2);
+
+			if (!(ifStmt.getThenStatement() instanceof Block block)) {
+				return false;
+			}
+
+			System.out.println(-1);
+
+			List<Statement> stmts = block.statements();
+
+			// Checks that there is only one line in the ifStatement
+			boolean isOneLine = stmts.size() == 1;
+			if (!isOneLine)
+				return false;
+
+			System.out.println(0);
+			// Checks that the single line is an assignment statement
+			if (!(stmts.get(0) instanceof ExpressionStatement exprStmt
+					&& exprStmt.getExpression() instanceof Assignment assign)) {
+				return false;
+			}
+
+			System.out.println(1);
+			leftOperand = assign.getLeftHandSide();
+			rightOperand = assign.getRightHandSide();
+			Assignment.Operator assignOperator = assign.getOperator();
+			if (assignOperator != Assignment.Operator.ASSIGN) {
+				return false;
+			}
+
+			System.out.println(2);
+			SimpleName sentinelName = null;
+			Expression nullValue = null;
+			if (leftOperand instanceof SimpleName vName) {
+				sentinelName = vName;
+				nullValue = rightOperand;
+			} else if (rightOperand instanceof SimpleName vName) {
+				sentinelName = vName;
+				nullValue = leftOperand;
+			} else {
+				return false;
+			}
+
+			System.out.println(3);
+			String numLiteral;
+			if (nullValue instanceof NumberLiteral numLit) {
+				numLiteral = numLit.getToken();
+			} else if (nullValue instanceof PrefixExpression pExpr) {
+				numLiteral = pExpr.toString();
+			} else {
+				return false;
+			}
+
+			// At this point we have if (varName ?? null) sentinel = nullValue
+			Sentinel sentinel = new Sentinel();
+			sentinel.setVarName(varName);
+
+			System.out.println(4);
+
+			// if (varName != null) sentinelName = nullValue
+			if (operator == InfixExpression.Operator.NOT_EQUALS) {
+				sentinel.setSentinelName(sentinelName);
+				sentinel.setNotNullCheck(numLiteral);
+			}
+			// if (varName == null) sentinelName = nullValue
+			else if (operator == InfixExpression.Operator.EQUALS) {
+				sentinel.setSentinelName(sentinelName);
+				sentinel.setNullCheck(numLiteral);
+			} else {
+				return false;
+			}
+			sentinels.put(sentinelName.toString(), sentinel);
 		}
 
-		if (node instanceof IfStatement ifStmt) {
-			System.out.println("7");
-			Expression condition = ifStmt.getExpression();
-			if (condition instanceof InfixExpression infix) {
-				Expression leftOperand = infix.getLeftOperand();
-				Expression rightOperand = infix.getRightOperand();
-				Operator operator = infix.getOperator();
-				if ((leftOperand instanceof SimpleName ogVarName
-						&& rightOperand instanceof NullLiteral)) {
-					if (ifStmt.getThenStatement() instanceof Block thenBlock) {
-						List<Statement> stmts = thenBlock.statements();
-
-						// Checks if there is only one line
-						boolean isOneLine = stmts.size() == 1;
-						if (!isOneLine)
-							return false;
-
-						if (stmts.get(0) instanceof ExpressionStatement exprStmt
-								&& exprStmt.getExpression() instanceof Assignment assign) {
-							leftOperand = assign.getLeftHandSide();
-							rightOperand = assign.getRightHandSide();
-							Assignment.Operator assignOperator = assign.getOperator();
-							System.out.println("Left: " + leftOperand.getClass());
-							System.out.println("Right: " + rightOperand.getClass());
-							System.out.println("Operator: " + assignOperator.getClass());
-							if (leftOperand instanceof SimpleName varName) {
-								if (operator == InfixExpression.Operator.EQUALS) {
-									Sentinel sent = new Sentinel();
-									sent.setNotNullValue(rightOperand.toString());
-									sent.setVarName(ogVarName);
-									sentinels.put(varName.toString(), sent);
-									System.out.println(sent);
-								} else if (operator == InfixExpression.Operator.NOT_EQUALS) {
-									Sentinel sent = new Sentinel();
-									sent.setNotNullValue(rightOperand.toString());
-									sent.setVarName(ogVarName);
-									sentinels.put(varName.toString(), sent);
-								}
-							} else if (rightOperand instanceof SimpleName varName) {
-								if (operator == InfixExpression.Operator.EQUALS) {
-									Sentinel sent = new Sentinel();
-									sent.setNotNullValue(rightOperand.toString());
-									sent.setVarName(ogVarName);
-									sentinels.put(varName.toString(), sent);
-								} else if (operator == InfixExpression.Operator.NOT_EQUALS) {
-									Sentinel sent = new Sentinel();
-									sent.setNotNullValue(rightOperand.toString());
-									sent.setVarName(ogVarName);
-									sentinels.put(varName.toString(), sent);
-								}
-							}
-						}
-					}
-				} else if ((rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-
-				}
-			}
-		}
 		return false;
 	}
 
 	@Override
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (node instanceof IfStatement ifStmt) {
-			System.out.println("[DEBUG] If-statement");
-			Expression condition = ifStmt.getExpression();
-			if (condition instanceof InfixExpression infix
-					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
-				Expression leftOperand = infix.getLeftOperand();
-				Expression rightOperand = infix.getRightOperand();
-				Operator operator = infix.getOperator();
-				Sentinel sentinel = null;
-				Expression checkValue = null;
-				if ((leftOperand instanceof SimpleName lhs)) {
-					sentinel = sentinels.get(lhs.toString());
-					checkValue = rightOperand;
-
-				} else if (rightOperand instanceof SimpleName rhs) {
-					sentinel = sentinels.get(rhs.toString());
-					checkValue = leftOperand;
-				}
-				if (sentinel == null) {
+			List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
+			for (Expression expression : exprs) {
+				if (!(expression instanceof InfixExpression infix)) {
 					return;
 				}
 
-				System.out.println(sentinel.getNotNullValue());
-				System.out.println(checkValue.toString());
-				AST ast = node.getAST();
-				InfixExpression newCheck = ast.newInfixExpression();
-				newCheck.setLeftOperand(ast.newSimpleName(sentinel.getVarName().toString()));
-				newCheck.setRightOperand(ast.newNullLiteral());
-				if (sentinel.getNotNullValue().equals(checkValue.toString())) {
-					newCheck.setOperator(operator);
+				Expression infixLeftOperand = infix.getLeftOperand();
+				Expression infixRightOperand = infix.getRightOperand();
+				InfixExpression.Operator infixOperator = infix.getOperator();
+
+				boolean isEqualityCheck = (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
+						|| infix.getOperator() == InfixExpression.Operator.EQUALS);
+
+				if (!isEqualityCheck)
+					return;
+
+				SimpleName equalityVar;
+				Expression equalityExpr;
+
+				if (infixLeftOperand instanceof SimpleName vName) {
+					equalityVar = vName;
+					equalityExpr = infixRightOperand;
+				} else if (infixRightOperand instanceof SimpleName vName) {
+					equalityVar = vName;
+					equalityExpr = infixLeftOperand;
 				} else {
-					operator = operator == InfixExpression.Operator.EQUALS
-							? InfixExpression.Operator.NOT_EQUALS
-							: InfixExpression.Operator.EQUALS;
-					newCheck.setOperator(operator);
+					return;
 				}
-				System.out.println("Replacing \n" + condition + "\nWith\n" + newCheck);
-				rewriter.replace(condition, newCheck, null);
+
+				Expression replacement = getReplacementExpression(node, equalityVar, equalityExpr, infixOperator);
+				if (replacement != null) {
+					System.err.println("Replacing " + expression + " with " + replacement);
+					rewriter.replace(expression, replacement, null);
+				}
 
 			}
 		}
+	}
+
+	public Expression getReplacementExpression(ASTNode node, SimpleName equalityVar, Expression equalityExpr,
+			InfixExpression.Operator infixOperator) {
+		Sentinel sentinel = sentinels.get(equalityVar.toString());
+		if (sentinel == null)
+			return null;
+		AST ast = node.getAST();
+		InfixExpression newCheck = ast.newInfixExpression();
+		newCheck.setLeftOperand(ast.newSimpleName(sentinel.getVarName().toString()));
+		newCheck.setRightOperand(ast.newNullLiteral());
+		if (infixOperator == InfixExpression.Operator.EQUALS) {
+			if (sentinel.getNullValue() != null) {
+				if (equalityExpr.toString().equals(sentinel.getNullValue())) {
+					newCheck.setOperator(InfixExpression.Operator.EQUALS);
+				} else {
+					newCheck.setOperator(InfixExpression.Operator.NOT_EQUALS);
+				}
+			} else if (sentinel.getNotNullValue() != null) {
+				if (equalityExpr.toString().equals(sentinel.getNotNullValue())) {
+					newCheck.setOperator(InfixExpression.Operator.NOT_EQUALS);
+				} else {
+					newCheck.setOperator(InfixExpression.Operator.EQUALS);
+				}
+			}
+			return newCheck;
+		} else if (infixOperator == InfixExpression.Operator.NOT_EQUALS) {
+			if (sentinel.getNullValue() != null) {
+				if (equalityExpr.toString().equals(sentinel.getNullValue())) {
+					newCheck.setOperator(InfixExpression.Operator.NOT_EQUALS);
+				} else {
+					newCheck.setOperator(InfixExpression.Operator.EQUALS);
+				}
+			} else if (sentinel.getNotNullValue() != null) {
+				if (equalityExpr.toString().equals(sentinel.getNotNullValue())) {
+					newCheck.setOperator(InfixExpression.Operator.EQUALS);
+				} else {
+					newCheck.setOperator(InfixExpression.Operator.NOT_EQUALS);
+				}
+
+			}
+			return newCheck;
+		}
+		return null;
 	}
 }

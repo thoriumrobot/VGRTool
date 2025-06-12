@@ -51,7 +51,7 @@ public class BooleanFlagTesting {
 				public class BooleanFlagTest {
 				  public void testMethod(String x) {
 				    boolean xIsNull = x == null;
-				    if (x == null) {
+				    if ((x == null)) {
 				      ;
 				    }
 				  }
@@ -76,7 +76,7 @@ public class BooleanFlagTesting {
 				public class BooleanFlagTest {
 				  public void testMethod(String x) {
 				    boolean xIsNotNull = x != null;
-				    if (x != null) {
+				    if ((x != null)) {
 				      ;
 				    }
 				  }
@@ -101,7 +101,7 @@ public class BooleanFlagTesting {
 				public class BooleanFlagTest {
 				  public void testMethod(String x) {
 				    boolean xIsNotNull = x != null;
-				    if (x == null) {
+				    if (!(x != null)) {
 				      ;
 				    }
 				  }
@@ -126,7 +126,7 @@ public class BooleanFlagTesting {
 				public class BooleanFlagTest {
 				  public void testMethod(String x) {
 				    boolean xIsNotNull = x != null;
-				    if (x == null) {
+				    if (!(x != null)) {
 				      ;
 				    }
 				  }
@@ -151,7 +151,7 @@ public class BooleanFlagTesting {
 				public class BooleanFlagTest {
 				  public void testMethod(String x) {
 				    boolean xIsNull = x == null;
-				    if (x == null && 1 > 0) {
+				    if ((x == null) && 1 > 0) {
 				      ;
 				    }
 				  }
@@ -184,7 +184,7 @@ public class BooleanFlagTesting {
 				        Object exceptionHandlerObject = null;
 				        Method exceptionHandlerMethod = null;
 
-				        if (handlerMethod == null) {
+				        if (((handlerMethod == null ? true : false))) {
 				           ;
 				        }
 				    }
@@ -217,7 +217,7 @@ public class BooleanFlagTesting {
 				        Object exceptionHandlerObject = null;
 				        Method exceptionHandlerMethod = null;
 
-				        if (handlerMethod == null) {
+				        if (!((handlerMethod != null ? true : false))) {
 				           ;
 				        }
 				    }
@@ -250,7 +250,7 @@ public class BooleanFlagTesting {
 				        boolean hasItems = (items != null && !items.isEmpty());
 
 				        // Indirectly implies items != null
-				        if ((items != null && !items.isEmpty())) {
+				        if (((items != null && !items.isEmpty()))) {
 				            TreeSet<?> set = new TreeSet<>(items);
 				        }
 				    }
