@@ -10,7 +10,6 @@ import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
-import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.NumberLiteral;
 import org.eclipse.jdt.core.dom.PrefixExpression;
@@ -19,9 +18,20 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import org.eclipse.jdt.core.dom.Statement;
 
+/**
+ * This class represents a refactoring in which integer variables whose values
+ * represent the nullness of another variables are refactored into explicit null
+ * checks
+ */
 public class SentinelRefactoring extends Refactoring {
+	/**
+	 * List of all sentinels found during traversal of the AST
+	 */
 	private final Dictionary<String, Sentinel> sentinels;
 
+	/**
+	 * Helper class for storing the values of a sentinel reference
+	 */
 	protected class Sentinel {
 		private SimpleName sentinelName;
 		private SimpleName VarName;
@@ -81,12 +91,10 @@ public class SentinelRefactoring extends Refactoring {
 		List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
 		for (Expression expression : exprs) {
 
-			System.out.println(-5);
 			if (!(expression instanceof InfixExpression infix)) {
 				return false;
 			}
 
-			System.out.println(-4);
 			Expression leftOperand = infix.getLeftOperand();
 			Expression rightOperand = infix.getRightOperand();
 			InfixExpression.Operator operator = infix.getOperator();
@@ -100,8 +108,6 @@ public class SentinelRefactoring extends Refactoring {
 				return true;
 			}
 
-			System.out.println(-3);
-
 			// Check if condition uses a null check
 			SimpleName varName = null;
 			if ((leftOperand instanceof SimpleName vName
@@ -114,13 +120,9 @@ public class SentinelRefactoring extends Refactoring {
 				return false;
 			}
 
-			System.out.println(-2);
-
 			if (!(ifStmt.getThenStatement() instanceof Block block)) {
 				return false;
 			}
-
-			System.out.println(-1);
 
 			List<Statement> stmts = block.statements();
 
@@ -129,14 +131,12 @@ public class SentinelRefactoring extends Refactoring {
 			if (!isOneLine)
 				return false;
 
-			System.out.println(0);
 			// Checks that the single line is an assignment statement
 			if (!(stmts.get(0) instanceof ExpressionStatement exprStmt
 					&& exprStmt.getExpression() instanceof Assignment assign)) {
 				return false;
 			}
 
-			System.out.println(1);
 			leftOperand = assign.getLeftHandSide();
 			rightOperand = assign.getRightHandSide();
 			Assignment.Operator assignOperator = assign.getOperator();
@@ -144,7 +144,6 @@ public class SentinelRefactoring extends Refactoring {
 				return false;
 			}
 
-			System.out.println(2);
 			SimpleName sentinelName = null;
 			Expression nullValue = null;
 			if (leftOperand instanceof SimpleName vName) {
@@ -157,7 +156,6 @@ public class SentinelRefactoring extends Refactoring {
 				return false;
 			}
 
-			System.out.println(3);
 			String numLiteral;
 			if (nullValue instanceof NumberLiteral numLit) {
 				numLiteral = numLit.getToken();
@@ -170,8 +168,6 @@ public class SentinelRefactoring extends Refactoring {
 			// At this point we have if (varName ?? null) sentinel = nullValue
 			Sentinel sentinel = new Sentinel();
 			sentinel.setVarName(varName);
-
-			System.out.println(4);
 
 			// if (varName != null) sentinelName = nullValue
 			if (operator == InfixExpression.Operator.NOT_EQUALS) {
@@ -233,6 +229,16 @@ public class SentinelRefactoring extends Refactoring {
 		}
 	}
 
+	/**
+	 * Parses an equality expression to find a check of a sentinel value
+	 * 
+	 * @param ast           The AST the Expression belongs to
+	 * @param equalityVar   The name of the variable in the equality expression
+	 * @param equalityExpr  The expression in the equality expression
+	 * @param infixOperator The operator in the equality expression
+	 * @return The explicit null check the sentinel value represents, or null if
+	 *         not sentinel check found
+	 */
 	public Expression getReplacementExpression(ASTNode node, SimpleName equalityVar, Expression equalityExpr,
 			InfixExpression.Operator infixOperator) {
 		Sentinel sentinel = sentinels.get(equalityVar.toString());
