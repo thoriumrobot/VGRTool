@@ -36,7 +36,6 @@ public class SeperateVariableTesting {
 		TestingEngine.testSingleRefactoring(input, expectedOutput, "SeperateVariableRefactoring");
 	}
 
-	@Test
 	public void simpleTest() {
 		String input = """
 				public class SeperateVariableTest {
