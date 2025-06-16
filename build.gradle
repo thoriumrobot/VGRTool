@@ -40,13 +40,39 @@ dependencies {
 }
 
 spotless {
-   java {
-      eclipse() 
-   }
+	format 'misc', {
+		target '*.gradle', '.gitattributes', '.gitignore'
+
+		trimTrailingWhitespace()
+		leadingSpacesToTabs()
+		endWithNewline()
+	}
+	java {
+		eclipse()
+		formatAnnotations()
+		removeUnusedImports()
+	}
 }
 
-afterEvaluate {
-    tasks.getByName('spotlessCheck').dependsOn(tasks.getByName('spotlessApply'))
+tasks.named('spotlessJavaCheck') { 
+    dependsOn 'spotlessJavaApply'
+}
+
+tasks.named('build') {
+    dependsOn 'spotlessJavaCheck'
+    tasks.findByName('spotlessJavaCheck').mustRunAfter 'compileJava'
+}
+
+tasks.named('test') {
+    dependsOn 'spotlessJavaCheck'
+
+    useJUnitPlatform()
+
+    maxHeapSize = '1G'
+
+    testLogging {
+        events "passed"
+    }
 }
 
 application {
@@ -59,16 +85,6 @@ tasks.withType(JavaCompile) {
         '-Xlint:unchecked',
         '-Xlint:deprecation'
     ]
-}
-
-tasks.named('test', Test) {
-    useJUnitPlatform()
-
-    maxHeapSize = '1G'
-
-    testLogging {
-        events "passed"
-    }
 }
 
 configurations.all {
