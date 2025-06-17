@@ -25,7 +25,8 @@ public class RefactoringEngine {
 	/**
 	 * Default Constructor
 	 * 
-	 * @param refactoringNames A list of Refactorings to use
+	 * @param refactoringNames
+	 *            A list of Refactorings to use
 	 */
 	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
@@ -37,10 +38,8 @@ public class RefactoringEngine {
 				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
 				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
 				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
-				case "SeperateVariableRefactoring" ->
-					refactorings.add(new SeperateVariableRefactoring());
-				default ->
-					LOGGER.error("Unknown refactoring: {}", name);
+				case "SeperateVariableRefactoring" -> refactorings.add(new SeperateVariableRefactoring());
+				default -> LOGGER.error("Unknown refactoring: {}", name);
 
 			}
 		}
@@ -54,9 +53,10 @@ public class RefactoringEngine {
 	/**
 	 * Applies all refactorings in {@value refactorings} to a given source file
 	 * 
-	 * @param cu         The compilation unit to use
-	 * @param sourceCode A string representing the filepath of the source code to
-	 *                   refactor
+	 * @param cu
+	 *            The compilation unit to use
+	 * @param sourceCode
+	 *            A string representing the filepath of the source code to refactor
 	 */
 	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
 		AST ast = cu.getAST();

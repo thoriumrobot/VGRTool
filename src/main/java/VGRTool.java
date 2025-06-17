@@ -22,8 +22,9 @@ public class VGRTool {
 	 * Main method for the program; Runs refactorings to all Java files in a given
 	 * directory
 	 * 
-	 * @param args Path of directory to execute program on (args[0]) and
-	 *             refactoring modules to use (args[1...])
+	 * @param args
+	 *            Path of directory to execute program on (args[0]) and refactoring
+	 *            modules to use (args[1...])
 	 */
 	public static void main(String[] args) {
 		if (args.length < 2) {
@@ -63,7 +64,8 @@ public class VGRTool {
 	/**
 	 * Returns a list of all java files in the given directory path
 	 * 
-	 * @param directory Filepath of directory to search through (non-recursive)
+	 * @param directory
+	 *            Filepath of directory to search through (non-recursive)
 	 */
 	private static List<File> getJavaFiles(String directory) throws IOException {
 		List<File> javaFiles = new ArrayList<>();
@@ -76,8 +78,10 @@ public class VGRTool {
 	/**
 	 * Applies refactoring to a given file
 	 * 
-	 * @param file              The file to refactor
-	 * @param refactoringModule the refactoring to apply to the file
+	 * @param file
+	 *            The file to refactor
+	 * @param refactoringModule
+	 *            the refactoring to apply to the file
 	 */
 	private static void processFile(File file, String refactoringModule) {
 		try {

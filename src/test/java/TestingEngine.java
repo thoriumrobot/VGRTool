@@ -39,8 +39,7 @@ public class TestingEngine {
 		assertEquals(expectedOutput, result);
 	}
 
-	public static void testSingleRefactoring(String input, String expectedOutput,
-			String refactoring) {
+	public static void testSingleRefactoring(String input, String expectedOutput, String refactoring) {
 
 		// Set parser source code
 		parser.setSource(input.toCharArray());

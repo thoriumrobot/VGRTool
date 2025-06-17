@@ -49,8 +49,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				Expression rightOperand = infix.getRightOperand();
 
 				if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-						|| (rightOperand instanceof SimpleName
-								&& leftOperand instanceof NullLiteral)) {
+						|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
 					LOGGER.debug("Found indirect null check in if-statement: {}", condition);
 					return true;
 				}
@@ -94,10 +93,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				if (initializer instanceof ConditionalExpression ternary) {
 					if (ternary.getElseExpression() instanceof NullLiteral) {
 						assignedVariable = varDecl;
-						LOGGER.debug("Found ternary assignment: "
-								+ assignedVariable.getName());
-						LOGGER.debug("Ternary condition: "
-								+ ternary.getExpression());
+						LOGGER.debug("Found ternary assignment: " + assignedVariable.getName());
+						LOGGER.debug("Ternary condition: " + ternary.getExpression());
 					}
 				}
 				break;
@@ -121,8 +118,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 							&& infix.getLeftOperand() instanceof SimpleName) {
 
 						SimpleName varName = (SimpleName) infix.getLeftOperand();
-						if (varName.getIdentifier()
-								.equals(assignedVariable.getName().getIdentifier())) {
+						if (varName.getIdentifier().equals(assignedVariable.getName().getIdentifier())) {
 							existingIfStatement = ifStmt;
 							LOGGER.debug("Found indirect null check in if-statement: {}", condition);
 							break;
@@ -160,8 +156,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 			// ✅ Now, safely cast to ConditionalExpression
 			if (initializer instanceof ConditionalExpression ternary) {
-				Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast,
-						ternary.getExpression());
+				Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast, ternary.getExpression());
 
 				LOGGER.debug("Replacing condition: {}", existingIfStatement.getExpression());
 				LOGGER.debug("New condition: {}", directCheckExpr);
