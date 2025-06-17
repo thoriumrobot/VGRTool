@@ -10,3 +10,6 @@ bin
 .classpath
 .settings
 .project
+
+# Ignore log files
+logs

@@ -9,12 +9,20 @@
     <Console name="CONSOLE">
       <PatternLayout pattern="%d [%t] %5p %c{1.} - %m%n"/>
     </Console>
+    <File name="FILE"
+      fileName="logs/test-logs.json">
+      <JsonTemplateLayout/>
+    </File>
+    <Async name="ASYNC">
+      <AppenderRef ref="FILE"/>
+    </Async>
   </Appenders>
 
   <Loggers>
     <Logger name="VGRTool-Test" level="DEBUG"/>
     <Root level="DEBUG">
       <AppenderRef ref="CONSOLE"/>
+      <AppenderRef ref="ASYNC"/>
     </Root>
   </Loggers>
 
