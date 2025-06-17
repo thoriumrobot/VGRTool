@@ -2,6 +2,9 @@ import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ConditionalExpression;
@@ -19,12 +22,16 @@ import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 /**
- * This class represents a refactoring in which boolean flags are replaced with explicit null checks
+ * This class represents a refactoring in which boolean flags are replaced with
+ * explicit null checks
  */
 public class BooleanFlagRefactoring extends Refactoring {
 
+	private static final Logger LOGGER = LogManager.getLogger();
+
 	/**
-	 * List of variable names identified as boolean flags, along with their corresponding
+	 * List of variable names identified as boolean flags, along with their
+	 * corresponding
 	 * initializer expression
 	 */
 	private final Dictionary<String, Expression> booleanFlags;
@@ -34,7 +41,6 @@ public class BooleanFlagRefactoring extends Refactoring {
 		super();
 		this.booleanFlags = new Hashtable<>();
 	}
-
 
 	@Override
 	public boolean isApplicable(ASTNode node) {
@@ -55,8 +61,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 			// 1b. Search through all declared variables in declaration node for a
 			// booleanflag
 			for (int i = 0; i < stmt.fragments().size(); ++i) {
-				VariableDeclarationFragment frag =
-						(VariableDeclarationFragment) stmt.fragments().get(i);
+				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
 				SimpleName varName = frag.getName();
 				Expression varInitializer = frag.getInitializer();
 				List<Expression> initExpr = Refactoring.parseExpression(varInitializer);
@@ -76,8 +81,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 								AST ast = node.getAST();
 								ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-								Expression copiedExpression =
-										(Expression) ASTNode.copySubtree(ast, varInitializer);
+								Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
 								pExpr.setExpression(copiedExpression);
 								booleanFlags.put(varName.toString(), pExpr);
 								flagFound = true;
@@ -130,14 +134,18 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 					if ((leftOperand instanceof SimpleName var)) {
 						Expression newExpr = booleanFlags.get(var.toString());
+
+						LOGGER.info("Replacing '{}' with '{}'", leftOperand, newExpr);
 						rewriter.replace(leftOperand, newExpr, null);
 					} else if (rightOperand instanceof SimpleName var) {
 						Expression newExpr = booleanFlags.get(var.toString());
+						LOGGER.info("Replacing '{}' with '{}'", rightOperand, newExpr);
 						rewriter.replace(rightOperand, newExpr, null);
 					}
 				}
 				if (expression instanceof SimpleName sn) {
 					Expression newExpr = booleanFlags.get(sn.toString());
+					LOGGER.info("Replacing '{}' with '{}'", sn, newExpr);
 					rewriter.replace(sn, newExpr, null);
 
 				}

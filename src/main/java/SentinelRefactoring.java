@@ -18,12 +18,16 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import org.eclipse.jdt.core.dom.Statement;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * This class represents a refactoring in which integer variables whose values
  * represent the nullness of another variables are refactored into explicit null
  * checks
  */
 public class SentinelRefactoring extends Refactoring {
+	private static final Logger LOGGER = LogManager.getLogger();
 	/**
 	 * List of all sentinels found during traversal of the AST
 	 */
@@ -88,6 +92,7 @@ public class SentinelRefactoring extends Refactoring {
 		if (!(node instanceof IfStatement ifStmt)) {
 			return false;
 		}
+
 		List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
 		for (Expression expression : exprs) {
 
@@ -221,7 +226,7 @@ public class SentinelRefactoring extends Refactoring {
 
 				Expression replacement = getReplacementExpression(node, equalityVar, equalityExpr, infixOperator);
 				if (replacement != null) {
-					System.err.println("Replacing " + expression + " with " + replacement);
+					LOGGER.info("Replacing {} with {}", expression, replacement);
 					rewriter.replace(expression, replacement, null);
 				}
 

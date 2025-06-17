@@ -17,11 +17,16 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 /**
  * This class represents a refactoring in which explicit null checks are added
  * before a value dereference
  */
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
+
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
@@ -30,8 +35,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 	@Override
 	public boolean isApplicable(ASTNode node) {
-		System.out.println("[DEBUG] Checking if node is applicable: " + node.getClass().getSimpleName());
-
 		if (node instanceof MethodInvocation || node instanceof FieldAccess || node instanceof QualifiedName
 				|| node instanceof ArrayAccess) {
 			return true;
@@ -48,32 +51,30 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
 						|| (rightOperand instanceof SimpleName
 								&& leftOperand instanceof NullLiteral)) {
-					System.out.println("[DEBUG] Found indirect null check in if-statement: "
-							+ condition);
+					LOGGER.debug("Found indirect null check in if-statement: {}", condition);
 					return true;
 				}
 			}
 		}
-		System.out.println("[DEBUG] Node " + node.getClass().getSimpleName() + "is NOT applicable. Skipping.");
 		return false;
 	}
 
 	@Override
 	public void apply(ASTNode node, ASTRewrite rewriter) {
-		System.out.println("[DEBUG] Processing ASTNode: " + node.getClass().getSimpleName());
+		LOGGER.debug("Processing ASTNode: {}", node.getClass().getSimpleName());
 
 		AST ast = node.getAST();
 
 		if (node instanceof MethodInvocation exprNode) {
-			System.out.println("[DEBUG] Target Expression: " + (exprNode).getExpression());
+			LOGGER.debug("Target Expression: " + (exprNode).getExpression());
 		} else if (node instanceof FieldAccess exprNode) {
-			System.out.println("[DEBUG] Target Expression: " + (exprNode).getExpression());
+			LOGGER.debug("Target Expression: " + (exprNode).getExpression());
 		} else if (node instanceof QualifiedName exprNode) {
-			System.out.println("[DEBUG] Target Expression: " + (exprNode).getQualifier());
+			LOGGER.debug("Target Expression: " + (exprNode).getQualifier());
 		} else if (node instanceof ArrayAccess exprNode) {
-			System.out.println("[DEBUG] Target Expression: " + (exprNode).getArray());
+			LOGGER.debug("Target Expression: " + (exprNode).getArray());
 		} else {
-			System.out.println("[DEBUG] Node is not a dereferenceable expression.");
+			LOGGER.debug("Node is not a dereferenceable expression.");
 			return;
 		}
 
@@ -93,9 +94,9 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				if (initializer instanceof ConditionalExpression ternary) {
 					if (ternary.getElseExpression() instanceof NullLiteral) {
 						assignedVariable = varDecl;
-						System.out.println("[DEBUG] Found ternary assignment: "
+						LOGGER.debug("Found ternary assignment: "
 								+ assignedVariable.getName());
-						System.out.println("[DEBUG] Ternary condition: "
+						LOGGER.debug("Ternary condition: "
 								+ ternary.getExpression());
 					}
 				}
@@ -105,7 +106,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		}
 
 		if (assignedVariable == null) {
-			System.out.println("[DEBUG] No ternary assignment found.");
+			LOGGER.debug("No ternary assignment found.");
 			return;
 		}
 
@@ -123,9 +124,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 						if (varName.getIdentifier()
 								.equals(assignedVariable.getName().getIdentifier())) {
 							existingIfStatement = ifStmt;
-							System.out.println(
-									"[DEBUG] Found indirect null check in if-statement: "
-											+ condition);
+							LOGGER.debug("Found indirect null check in if-statement: {}", condition);
 							break;
 						}
 					}
@@ -164,15 +163,14 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				Expression directCheckExpr = (Expression) ASTNode.copySubtree(ast,
 						ternary.getExpression());
 
-				System.out.println(
-						"[DEBUG] Replacing condition: " + existingIfStatement.getExpression());
-				System.out.println("[DEBUG] New condition: " + directCheckExpr);
+				LOGGER.debug("Replacing condition: {}", existingIfStatement.getExpression());
+				LOGGER.debug("New condition: {}", directCheckExpr);
 
 				rewriter.replace(existingIfStatement.getExpression(), directCheckExpr, null);
 			} else {
 				if (initializer != null)
-					System.out.println("[ERROR] Expected ConditionalExpression but found: "
-							+ initializer.getClass().getSimpleName());
+					LOGGER.error("Expected ConditionalExpression but found: {}",
+							initializer.getClass().getSimpleName());
 			}
 		}
 	}

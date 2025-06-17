@@ -2,6 +2,8 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
@@ -23,6 +25,9 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
  * test for nullness of a variable are replaced with an explicit check
  */
 public class NestedNullRefactoring extends Refactoring {
+
+	private static final Logger LOGGER = LogManager.getLogger();
+
 	/**
 	 * List of variable names idnetified as boolean flags, along with their
 	 * corresponding initializer expression
@@ -45,14 +50,14 @@ public class NestedNullRefactoring extends Refactoring {
 		if (node instanceof PrefixExpression prefix) {
 			if (prefix.getOperand() instanceof MethodInvocation invocation
 					&& applicableMethods.get(invocation.toString()) != null) {
-				System.out.println("[DEBUG] Invocation of appliccable method found");
+				LOGGER.debug("Invocation of appliccable method found: ({})", invocation);
 				return true;
 			}
 			return false;
 		}
 		if (node instanceof MethodInvocation invocation) {
 			if (applicableMethods.get(invocation.toString()) != null) {
-				System.out.println("[DEBUG] Invocation of appliccable method found");
+				LOGGER.debug("Invocation of appliccable method found: ({})", invocation);
 				return true;
 			}
 			return false;
@@ -106,7 +111,7 @@ public class NestedNullRefactoring extends Refactoring {
 
 			if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
 					|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-				System.out.println("[DEBUG] Found one line null check method: " + method.getName());
+				LOGGER.debug("Found one line null check method: {}", method.getName());
 				applicableMethods.put(method.getName().toString() + "()", retExpr);
 			}
 		}
@@ -119,7 +124,7 @@ public class NestedNullRefactoring extends Refactoring {
 		if (node instanceof MethodInvocation invocation) {
 			String invocationName = invocation.toString();
 			Expression expr = (applicableMethods.get(invocationName));
-			System.out.println("Replacing \n" + invocation + "\nWith \n" + expr);
+			LOGGER.info("Replacing '{}' with '{}'", invocation, expr);
 			rewriter.replace(invocation, expr, null);
 		} else if (node instanceof PrefixExpression prefix
 				&& prefix.getOperator() == PrefixExpression.Operator.NOT
@@ -142,7 +147,8 @@ public class NestedNullRefactoring extends Refactoring {
 			} else if (originalOperator == InfixExpression.Operator.NOT_EQUALS) {
 				newInfix.setOperator(InfixExpression.Operator.EQUALS);
 			}
-			System.out.println("Replacing \n" + node + "\nWith \n" + infix);
+
+			LOGGER.info("Replacing '{}' with '{}'", node, newInfix);
 			rewriter.replace(node, newInfix, null);
 
 		}

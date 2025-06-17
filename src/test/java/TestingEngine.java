@@ -41,7 +41,6 @@ public class TestingEngine {
 
 	public static void testSingleRefactoring(String input, String expectedOutput,
 			String refactoring) {
-		System.out.println("Testing input:\n" + input + "\n");
 
 		// Set parser source code
 		parser.setSource(input.toCharArray());
@@ -56,6 +55,5 @@ public class TestingEngine {
 
 		// Assert that the output matches the expected transformation
 		assertEquals(expectedOutput, result);
-
 	}
 }

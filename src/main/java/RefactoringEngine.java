@@ -1,14 +1,11 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -18,6 +15,8 @@ import org.eclipse.text.edits.TextEdit;
  * Class to run VGRs on an AST
  */
 public class RefactoringEngine {
+	private static final Logger LOGGER = LogManager.getLogger();
+
 	/**
 	 * List of refactorings to apply
 	 */
@@ -40,12 +39,14 @@ public class RefactoringEngine {
 				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
 				case "SeperateVariableRefactoring" ->
 					refactorings.add(new SeperateVariableRefactoring());
-				default -> System.err.println("Unknown refactoring: " + name);
+				default ->
+					LOGGER.error("Unknown refactoring: {}", name);
+
 			}
 		}
 
 		if (refactorings.isEmpty()) {
-			System.err.println("No valid refactorings specified. Exiting.");
+			LOGGER.fatal("No valid refactorings specified. Exiting.");
 			System.exit(1);
 		}
 	}
@@ -65,11 +66,10 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: "
-							+ node.getClass().getSimpleName());
+					LOGGER.debug("Visiting AST Node {}", node);
 
 					if (refactoring.isApplicable(node)) {
-						System.out.println("[DEBUG] Applying refactoring to: \n" + node);
+						LOGGER.info("Applying refactoring to AST Node:\n {}", node);
 						refactoring.apply(node, rewriter);
 					}
 				}
@@ -81,7 +81,7 @@ public class RefactoringEngine {
 		try {
 			edits.apply(document);
 		} catch (MalformedTreeException | org.eclipse.jface.text.BadLocationException e) {
-			System.out.println(e.toString());
+			LOGGER.error("Failed to rewrite AST for document '{}'", document, e);
 		}
 
 		return document.get();
