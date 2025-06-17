@@ -40,6 +40,8 @@ dependencies {
 
     // Logging Bill of Materials
     implementation platform('org.apache.logging.log4j:log4j-bom:2.25.0')
+    // Logging API
+    implementation 'org.apache.logging.log4j:log4j-api:${log4j-api.version}'
     // The logging implementation (i.e., Log4j Core)
     runtimeOnly 'org.apache.logging.log4j:log4j-core' 
     // Log4j JSON-encoding support
