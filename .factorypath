@@ -1,5 +1,0 @@
-<factorypath>
-    <factorypathentry kind="EXTJAR" id="/home/AI/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-qual/3.21.0/55aaf38ec65c7aee19697257d644493c06dee1fe/checker-qual-3.21.0.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/home/AI/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker-util/3.21.0/a87425ef85eac0480db2950dd6f951c1e84ac57c/checker-util-3.21.0.jar" enabled="true" runInBatchMode="false"/>
-    <factorypathentry kind="EXTJAR" id="/home/AI/.gradle/caches/modules-2/files-2.1/org.checkerframework/checker/3.21.0/471b6690e9482f942a80ba2eda0b269d706d3d20/checker-3.21.0.jar" enabled="true" runInBatchMode="false"/>
-</factorypath>
