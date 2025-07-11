@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -8,7 +7,6 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -34,13 +32,13 @@ public class RefactoringEngine {
 				// case "SeperateVariableRefactoring" -> refactorings.add(new
 				// SeperateVariableRefactoring());
 				default -> System.err.println("Unknown refactoring: " + name);
-		}
+			}
 
-		if (refactorings.isEmpty()) {
-			System.err.println("No valid refactorings specified. Exiting.");
-			System.exit(1);
+			if (refactorings.isEmpty()) {
+				System.err.println("No valid refactorings specified. Exiting.");
+				System.exit(1);
+			}
 		}
-	    }
 	}
 
 	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
