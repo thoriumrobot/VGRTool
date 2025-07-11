@@ -59,6 +59,10 @@ java {
 }
 }
 
+tasks.named('spotlessCheck') { 
+    dependsOn 'spotlessApply'
+}
+
 tasks.named('spotlessJavaCheck') { 
     dependsOn 'spotlessJavaApply'
 }
