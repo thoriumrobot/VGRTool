@@ -19,18 +19,16 @@ import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 
 public class VGRTool {
-	private static final Logger logger = Logger.getLogger(VGRTool.class.getName());
 
 	public static void main(String[] args) {
 		if (args.length < 2) {
-			System.out.println("Usage: java VGRTool <sourceDirPath> <refactoringModule>");
+			System.out.println("Usage: java VGRTool <sourceDirPath> <refactoringModules>");
 			System.out.println("Available Modules:");
-			System.out.println(" - WrapWithCheckNotNullRefactoring");
-			System.out.println(" - AddNullChecksForNullableReferences");
 			System.out.println(" - AddNullCheckBeforeDereferenceRefactoring");
-			System.out.println(" - IntroduceLocalVariableAndNullCheckRefactoring");
-			System.out.println(" - IntroduceLocalVariableWithNullCheckRefactoring");
-			System.out.println(" - SimplifyNullCheckRefactoring");
+			System.out.println(" - BooleanFlagRefactoring");
+			System.out.println(" - NestedNullRefactoring");
+			System.out.println(" - SentinelRefactoring");
+			System.out.println(" - SeperateVariableRefactoring");
 			System.exit(1);
 		}
 
@@ -52,7 +50,7 @@ public class VGRTool {
 
 			System.out.println("Refactoring completed successfully!");
 		} catch (IOException e) {
-			logger.log(Level.WARNING, e.toString());
+			System.out.println(e.toString());
 		}
 	}
 
@@ -72,9 +70,8 @@ public class VGRTool {
 			// Unsure what this line was meant for?
 			// Document document = new Document(content);
 
-			// Step 4: Parse the content into an AST
-			@SuppressWarnings("deprecation")
-			ASTParser parser = ASTParser.newParser(AST.JLS17); // Use Java 17
+			// Step 4: Parse the content into an AST @SuppressWarnings("deprecation")
+			ASTParser parser = ASTParser.newParser(AST.getJLSLatest()); // Use Java 17
 			parser.setSource(content.toCharArray());
 			CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
@@ -83,7 +80,7 @@ public class VGRTool {
 
 			// Step 6: Initialize RefactoringEngine with the selected module
 			List<String> selectedModules = Collections.singletonList(refactoringModule);
-			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules, nullableExpressions);
+			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules);
 
 			// Step 7: Apply refactorings using RefactoringEngine
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);
@@ -94,7 +91,7 @@ public class VGRTool {
 
 		} catch (IOException e) {
 			String logString = "Error processing file: " + file.getPath();
-			logger.log(Level.WARNING, logString);
+			System.out.println(logString);
 		}
 	}
 
