@@ -83,7 +83,7 @@ public class VGRTool {
 
 			// Step 6: Initialize RefactoringEngine with the selected module
 			List<String> selectedModules = Collections.singletonList(refactoringModule);
-			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules, nullableExpressions);
+			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules);
 
 			// Step 7: Apply refactorings using RefactoringEngine
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);

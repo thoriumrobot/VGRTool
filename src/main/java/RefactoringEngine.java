@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -8,7 +7,6 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -18,53 +16,28 @@ public class RefactoringEngine {
 	private static final Logger logger = Logger.getLogger(VGRTool.class.getName());
 
 	private final List<Refactoring> refactorings;
-	@SuppressWarnings("unused")
-	private final Set<Expression> expressionsPossiblyNull;
 
-	public RefactoringEngine(List<String> refactoringNames, Set<Expression> expressionsPossiblyNull) {
-		this.expressionsPossiblyNull = expressionsPossiblyNull;
+	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
-			Refactoring refactoring = null;
-			/*
-			 * if (name.equals("WrapWithCheckNotNullRefactoring")) { refactoring = new
-			 * WrapWithCheckNotNullRefactoring(expressionsPossiblyNull); } else if
-			 * (name.equals("AddNullChecksForNullableReferences")) { refactoring = new
-			 * AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull); }
-			 * else
-			 */ if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
-				refactoring = new AddNullCheckBeforeDereferenceRefactoring();
-				/*
-				 * } else if (name.equals("GeneralizedNullCheck")) { refactoring = new
-				 * GeneralizedNullCheck(); } else if
-				 * (name.equals("AddNullCheckBeforeMethodCallRefactoring")) { refactoring = new
-				 * AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull,
-				 * expressionsPossiblyNull); } else if
-				 * (name.equals("AddNullnessAnnotationsRefactoring")) { refactoring = new
-				 * AddNullnessAnnotationsRefactoring(); } else if
-				 * (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) { refactoring
-				 * = new IntroduceLocalVariableAndNullCheckRefactoring(expressionsPossiblyNull);
-				 * } else if (name.equals("IntroduceLocalVariableWithNullCheckRefactoring")) {
-				 * refactoring = new
-				 * IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull); }
-				 * else if (name.equals("NullabilityRefactoring")) { refactoring = new
-				 * NullabilityRefactoring(); } else if
-				 * (name.equals("SimplifyNullCheckRefactoring")) { refactoring = new
-				 * SimplifyNullCheckRefactoring();
-				 */
-			} else {
-				System.err.println("Unknown refactoring: " + name);
+			switch (name) {
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
+					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
+				// case "BooleanFlagRefactoring" -> refactorings.add(new
+				// BooleanFlagRefactoring());
+				// case "NestedNullRefactoring" -> refactorings.add(new
+				// NestedNullRefactoring());
+				// case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				// case "SeperateVariableRefactoring" -> refactorings.add(new
+				// SeperateVariableRefactoring());
+				default -> System.err.println("Unknown refactoring: " + name);
 			}
 
-			if (refactoring != null) {
-				refactorings.add(refactoring);
+			if (refactorings.isEmpty()) {
+				System.err.println("No valid refactorings specified. Exiting.");
+				System.exit(1);
 			}
-		}
-
-		if (refactorings.isEmpty()) {
-			System.err.println("No valid refactorings specified. Exiting.");
-			System.exit(1);
 		}
 	}
 
