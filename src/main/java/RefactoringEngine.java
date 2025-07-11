@@ -40,6 +40,7 @@ public class RefactoringEngine {
 			System.err.println("No valid refactorings specified. Exiting.");
 			System.exit(1);
 		}
+	    }
 	}
 
 	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
