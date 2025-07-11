@@ -4,8 +4,8 @@ plugins {
     id("com.diffplug.spotless") version "7.0.4"
 }
 
-group 'com.example'
-version '1.0'
+group = 'com.example'
+version = '1.0'
 
 repositories {
     mavenCentral()
@@ -36,6 +36,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 
@@ -58,8 +59,25 @@ java {
 }
 }
 
-afterEvaluate {
-    tasks.getByName('spotlessCheck').dependsOn(tasks.getByName('spotlessApply'))
+tasks.named('spotlessJavaCheck') { 
+    dependsOn 'spotlessJavaApply'
+}
+
+tasks.named('build') {
+    dependsOn 'spotlessJavaCheck'
+    tasks.findByName('spotlessJavaCheck').mustRunAfter 'compileJava'
+}
+
+tasks.named('test') {
+    dependsOn 'spotlessJavaCheck'
+
+    useJUnitPlatform()
+
+    maxHeapSize = '1G'
+
+    testLogging {
+        events "passed"
+    }
 }
 
 application {
@@ -92,5 +110,3 @@ configurations.all {
         }
     }
 }
-
-
