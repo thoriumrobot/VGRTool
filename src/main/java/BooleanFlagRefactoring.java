@@ -26,8 +26,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 	/**
 	 * List of variable names identified as boolean flags, along with their
-	 * corresponding
-	 * initializer expression
+	 * corresponding initializer expression
 	 */
 	private final Dictionary<String, Expression> booleanFlags;
 
@@ -55,8 +54,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 			// 1b. Search through all declared variables in declaration node for a
 			// booleanflag
 			for (int i = 0; i < stmt.fragments().size(); ++i) {
-				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments()
-						.get(i);
+				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
 				SimpleName varName = frag.getName();
 				Expression varInitializer = frag.getInitializer();
 				List<Expression> initExpr = Refactoring.parseExpression(varInitializer);
@@ -69,16 +67,12 @@ public class BooleanFlagRefactoring extends Refactoring {
 								|| infix.getOperator() == InfixExpression.Operator.EQUALS) {
 							Expression leftOperand = infix.getLeftOperand();
 							Expression rightOperand = infix.getRightOperand();
-							if ((leftOperand instanceof SimpleName
-									&& rightOperand instanceof NullLiteral)
-									|| (rightOperand instanceof SimpleName
-											&& leftOperand instanceof NullLiteral)) {
+							if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
+									|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
 
 								AST ast = node.getAST();
-								ParenthesizedExpression pExpr = ast
-										.newParenthesizedExpression();
-								Expression copiedExpression = (Expression) ASTNode
-										.copySubtree(ast, varInitializer);
+								ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
+								Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
 								pExpr.setExpression(copiedExpression);
 								booleanFlags.put(varName.toString(), pExpr);
 								flagFound = true;
@@ -96,16 +90,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 			Expression condition = ifStmt.getExpression();
 			List<Expression> exprFragments = Refactoring.parseExpression(condition);
 			for (Expression expr : exprFragments) {
-				if (expr instanceof InfixExpression infix
-						&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-								|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
+				if (expr instanceof InfixExpression infix && (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
+						|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
 					Expression leftOperand = infix.getLeftOperand();
 					Expression rightOperand = infix.getRightOperand();
 
-					if ((leftOperand instanceof SimpleName lhs
-							&& booleanFlags.get(lhs.toString()) != null)
-							|| (rightOperand instanceof SimpleName rhs
-									&& booleanFlags.get(rhs.toString()) != null)) {
+					if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
+							|| (rightOperand instanceof SimpleName rhs && booleanFlags.get(rhs.toString()) != null)) {
 						return true;
 					}
 				}
