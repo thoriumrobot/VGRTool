@@ -20,6 +20,8 @@ import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 public class NestedNullRefactoring extends Refactoring {
+	public static final String NAME = "NestedNullRefactoring";
+
 	private final Dictionary<String, Expression> applicableMethods;
 
 	private boolean isApplicableInvocation(MethodInvocation invocation) {
