@@ -39,10 +39,9 @@ public class RefactoringEngine {
 	 * Applies all refactorings in {@value refactorings} to a given source file
 	 * 
 	 * @param cu
-	 *                   The compilation unit to use
+	 *            The compilation unit to use
 	 * @param sourceCode
-	 *                   A string representing the filepath of the source code to
-	 *                   refactor
+	 *            A string representing the filepath of the source code to refactor
 	 */
 	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
 		AST ast = cu.getAST();
@@ -52,8 +51,7 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: "
-							+ node.getClass().getSimpleName());
+					System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
 
 					if (refactoring.isApplicable(node)) {
 						System.out.println("[DEBUG] Applying refactoring to: \n" + node);
