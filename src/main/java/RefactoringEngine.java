@@ -24,7 +24,7 @@ public class RefactoringEngine {
 
 		for (String name : refactoringNames) {
 			switch (name) {
-				case "AddNullCheckBeforeDereferenceRefactoring" ->
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
 				// case "BooleanFlagRefactoring" -> refactorings.add(new
 				// BooleanFlagRefactoring());
