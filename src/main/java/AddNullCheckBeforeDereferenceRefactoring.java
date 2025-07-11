@@ -19,6 +19,8 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 // (Assume Refactoring is an abstract base class provided in the same framework)
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
+	public static final String NAME = "AddNullCheckBeforeDereferenceRefactoring";
+
 	/**
 	 * Optional list of expressions identified as possibly null (to guide
 	 * applicability)

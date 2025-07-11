@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.List;
-
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -18,7 +17,7 @@ public class RefactoringEngine {
 
 		for (String name : refactoringNames) {
 			switch (name) {
-				case "AddNullCheckBeforeDereferenceRefactoring" ->
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
 				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
 				// case "NestedNullRefactoring" -> refactorings.add(new
