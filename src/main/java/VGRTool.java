@@ -28,9 +28,11 @@ public class VGRTool {
 			System.out.println(" - WrapWithCheckNotNullRefactoring");
 			System.out.println(" - AddNullChecksForNullableReferences");
 			System.out.println(" - AddNullCheckBeforeDereferenceRefactoring");
-			System.out.println(" - IntroduceLocalVariableAndNullCheckRefactoring");
-			System.out.println(" - IntroduceLocalVariableWithNullCheckRefactoring");
-			System.out.println(" - SimplifyNullCheckRefactoring");
+			System.out.println(" - BooleanFlagRefactoring");
+			System.out.println(" - NestedNullRefactoring");
+			System.out.println(" - SentinelRefactoring");
+			System.out.println(" - SeperateVariableRefactoring");
+			System.out.println(" - All");
 			System.exit(1);
 		}
 
@@ -83,7 +85,8 @@ public class VGRTool {
 
 			// Step 6: Initialize RefactoringEngine with the selected module
 			List<String> selectedModules = Collections.singletonList(refactoringModule);
-			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules, nullableExpressions);
+			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules,
+					nullableExpressions);
 
 			// Step 7: Apply refactorings using RefactoringEngine
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);

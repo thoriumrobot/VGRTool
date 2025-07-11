@@ -26,39 +26,22 @@ public class RefactoringEngine {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
-			Refactoring refactoring = null;
-			/*
-			 * if (name.equals("WrapWithCheckNotNullRefactoring")) { refactoring = new
-			 * WrapWithCheckNotNullRefactoring(expressionsPossiblyNull); } else if
-			 * (name.equals("AddNullChecksForNullableReferences")) { refactoring = new
-			 * AddNullChecksForNullableReferencesRefactoring(expressionsPossiblyNull); }
-			 * else
-			 */ if (name.equals("AddNullCheckBeforeDereferenceRefactoring")) {
-				refactoring = new AddNullCheckBeforeDereferenceRefactoring();
-				/*
-				 * } else if (name.equals("GeneralizedNullCheck")) { refactoring = new
-				 * GeneralizedNullCheck(); } else if
-				 * (name.equals("AddNullCheckBeforeMethodCallRefactoring")) { refactoring = new
-				 * AddNullCheckBeforeMethodCallRefactoring(variablesPossiblyNull,
-				 * expressionsPossiblyNull); } else if
-				 * (name.equals("AddNullnessAnnotationsRefactoring")) { refactoring = new
-				 * AddNullnessAnnotationsRefactoring(); } else if
-				 * (name.equals("IntroduceLocalVariableAndNullCheckRefactoring")) { refactoring
-				 * = new IntroduceLocalVariableAndNullCheckRefactoring(expressionsPossiblyNull);
-				 * } else if (name.equals("IntroduceLocalVariableWithNullCheckRefactoring")) {
-				 * refactoring = new
-				 * IntroduceLocalVariableWithNullCheckRefactoring(expressionsPossiblyNull); }
-				 * else if (name.equals("NullabilityRefactoring")) { refactoring = new
-				 * NullabilityRefactoring(); } else if
-				 * (name.equals("SimplifyNullCheckRefactoring")) { refactoring = new
-				 * SimplifyNullCheckRefactoring();
-				 */
-			} else {
-				System.err.println("Unknown refactoring: " + name);
-			}
-
-			if (refactoring != null) {
-				refactorings.add(refactoring);
+			switch (name) {
+				case "AddNullCheckBeforeDereferenceRefactoring" ->
+					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
+				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
+				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
+				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				case "SeperateVariableRefactoring" ->
+					refactorings.add(new SeperateVariableRefactoring());
+				case "All" -> refactorings.addAll(
+						List.of(
+								new AddNullCheckBeforeDereferenceRefactoring(),
+								new BooleanFlagRefactoring(),
+								new NestedNullRefactoring(),
+								new SentinelRefactoring(),
+								new SeperateVariableRefactoring()));
+				default -> System.err.println("Unknown refactoring: " + name);
 			}
 		}
 
@@ -80,7 +63,8 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
+					System.out.println("[DEBUG] Visiting AST Node: "
+							+ node.getClass().getSimpleName());
 
 					if (refactoring.isApplicable(node)) {
 						System.out.println("[DEBUG] Applying refactoring to: " + node);
