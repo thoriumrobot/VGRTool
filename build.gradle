@@ -38,10 +38,24 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
 
+
 spotless {
-   java {
-      eclipse() 
-   }
+
+format 'misc', {
+	// define the files to apply `misc` to
+	target '*.gradle', '.gitattributes', '.gitignore'
+
+	// define the steps to apply to those files
+	trimTrailingWhitespace()
+	leadingSpacesToTabs()
+	endWithNewline()
+}
+java {
+	removeUnusedImports()
+	cleanthat()
+	eclipse()
+	formatAnnotations()
+}
 }
 
 afterEvaluate {
