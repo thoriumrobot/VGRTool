@@ -10,3 +10,9 @@ bin
 .classpath
 .settings
 .project
+.factorypath
+
+# Ignore Shell Extensions
+.direnv/
+.envrc
+
