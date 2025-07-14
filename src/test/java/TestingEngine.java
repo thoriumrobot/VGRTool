@@ -15,7 +15,6 @@ public class TestingEngine {
 	private static RefactoringEngine fullEngine = new RefactoringEngine(
 			Lists.newArrayList(AddNullCheckBeforeDereferenceRefactoring.NAME, NestedNullRefactoring.NAME));
 
-
 	// TODO: WRITE VARIANTS FOR SUPPORTED JAVA VERSIONS
 	private static ASTParser parser = ASTParser.newParser(AST.getJLSLatest()); // Use appropriate
 	// JLS version
