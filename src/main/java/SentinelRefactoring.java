@@ -16,8 +16,6 @@ import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
-import com.github.javaparser.ast.stmt.IfStmt;
-
 import org.eclipse.jdt.core.dom.Statement;
 
 /**
@@ -121,10 +119,8 @@ public class SentinelRefactoring extends Refactoring {
 		// Check if the condition does a check on an existing sentinel
 		boolean isEqualityCheck = ((operator == InfixExpression.Operator.NOT_EQUALS
 				|| operator == InfixExpression.Operator.EQUALS));
-		boolean usesSentinel = ((leftOperand instanceof SimpleName lhs
-				&& sentinels.get(lhs.toString()) != null)
-				|| (rightOperand instanceof SimpleName rhs
-						&& sentinels.get(rhs.toString()) != null));
+		boolean usesSentinel = ((leftOperand instanceof SimpleName lhs && sentinels.get(lhs.toString()) != null)
+				|| (rightOperand instanceof SimpleName rhs && sentinels.get(rhs.toString()) != null));
 		if (isEqualityCheck && usesSentinel) {
 			return true;
 		}
@@ -241,8 +237,7 @@ public class SentinelRefactoring extends Refactoring {
 					return;
 				}
 
-				Expression replacement = getReplacementExpression(node, equalityVar, equalityExpr,
-						infixOperator);
+				Expression replacement = getReplacementExpression(node, equalityVar, equalityExpr, infixOperator);
 				if (replacement != null) {
 					System.err.println("Replacing " + expression + " with " + replacement);
 					rewriter.replace(expression, replacement, null);
@@ -256,13 +251,13 @@ public class SentinelRefactoring extends Refactoring {
 	 * Parses an equality expression to find a check of a sentinel value
 	 * 
 	 * @param ast
-	 *                      The AST the Expression belongs to
+	 *            The AST the Expression belongs to
 	 * @param equalityVar
-	 *                      The name of the variable in the equality expression
+	 *            The name of the variable in the equality expression
 	 * @param equalityExpr
-	 *                      The expression in the equality expression
+	 *            The expression in the equality expression
 	 * @param infixOperator
-	 *                      The operator in the equality expression
+	 *            The operator in the equality expression
 	 * @return The explicit null check the sentinel value represents, or null if not
 	 *         sentinel check found
 	 */
