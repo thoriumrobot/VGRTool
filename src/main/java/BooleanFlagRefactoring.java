@@ -21,6 +21,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
  * explicit null checks
  */
 public class BooleanFlagRefactoring extends Refactoring {
+	public static final String NAME = "BooleanFlagRefactoring";
 
 	/**
 	 * List of variable names identified as boolean flags, along with their

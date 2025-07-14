@@ -24,7 +24,7 @@ public class RefactoringEngine {
 			switch (name) {
 				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
-				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
+				case BooleanFlagRefactoring.NAME -> refactorings.add(new BooleanFlagRefactoring());
 				// case "NestedNullRefactoring" -> refactorings.add(new
 				// NestedNullRefactoring());
 				// case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
