@@ -66,8 +66,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 		// Search through all declared variables in declaration node for a booleanflag
 		for (int i = 0; i < stmt.fragments().size(); ++i) {
-			VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments()
-					.get(i);
+			VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
 			SimpleName varName = frag.getName();
 			Expression varInitializer = frag.getInitializer();
 			List<Expression> initExpr = Refactoring.getSubExpressions(varInitializer);
@@ -80,16 +79,12 @@ public class BooleanFlagRefactoring extends Refactoring {
 							|| infix.getOperator() == InfixExpression.Operator.EQUALS) {
 						Expression leftOperand = infix.getLeftOperand();
 						Expression rightOperand = infix.getRightOperand();
-						if ((leftOperand instanceof SimpleName
-								&& rightOperand instanceof NullLiteral)
-								|| (rightOperand instanceof SimpleName
-										&& leftOperand instanceof NullLiteral)) {
+						if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
+								|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
 
 							AST ast = stmt.getAST();
-							ParenthesizedExpression pExpr = ast
-									.newParenthesizedExpression();
-							Expression copiedExpression = (Expression) ASTNode
-									.copySubtree(ast, varInitializer);
+							ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
+							Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
 							pExpr.setExpression(copiedExpression);
 							booleanFlags.put(varName.toString(), pExpr);
 							flagFound = true;
@@ -101,22 +96,21 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return flagFound;
 	}
 
-	// Check if node is an IfStatement with a boolean flag as part of it's
-	// conditional expression
+	/**
+	 * Analyzes an IfStatement to see if it contains a check utilizing an identified
+	 * boolean flag
+	 */
 	public boolean isApplicable(IfStatement ifStmt) {
 		Expression condition = ifStmt.getExpression();
 		List<Expression> exprFragments = Refactoring.getSubExpressions(condition);
 		for (Expression expr : exprFragments) {
-			if (expr instanceof InfixExpression infix && (infix
-					.getOperator() == InfixExpression.Operator.NOT_EQUALS
+			if (expr instanceof InfixExpression infix && (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
 					|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 
-				if ((leftOperand instanceof SimpleName lhs
-						&& booleanFlags.get(lhs.toString()) != null)
-						|| (rightOperand instanceof SimpleName rhs
-								&& booleanFlags.get(rhs.toString()) != null)) {
+				if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
+						|| (rightOperand instanceof SimpleName rhs && booleanFlags.get(rhs.toString()) != null)) {
 					return true;
 				}
 			}
