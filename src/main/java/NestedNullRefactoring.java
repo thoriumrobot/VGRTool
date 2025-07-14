@@ -35,7 +35,7 @@ public class NestedNullRefactoring extends Refactoring {
 	}
 
 	/*
-	 * Returns true is Node is a one-line method that returns the result of a null
+	 * Returns true iff Node is a one-line method that returns the result of a null
 	 * check
 	 */
 	@Override
