@@ -94,7 +94,7 @@ public class SentinelRefactoring extends Refactoring {
 
 	}
 
-	public boolean isAppliccable(IfStatement ifStmt) {
+	public boolean isApplicable(IfStatement ifStmt) {
 		List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
 		for (Expression expression : exprs) {
 
@@ -111,7 +111,7 @@ public class SentinelRefactoring extends Refactoring {
 		return false;
 	}
 
-	public boolean isAppliccable(InfixExpression infix) {
+	public boolean isApplicable(InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
 		Expression rightOperand = infix.getRightOperand();
 		InfixExpression.Operator operator = infix.getOperator();
