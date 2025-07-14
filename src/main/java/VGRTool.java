@@ -79,7 +79,8 @@ public class VGRTool {
 			parser.setSource(content.toCharArray());
 			parser.setResolveBindings(true);
 			parser.setBindingsRecovery(true);
-			parser.setUnitName("Test.java"); // Required for binding resolution
+
+			parser.setUnitName(file.getName()); // Required for binding resolution
 
 			// Set classpath and sourcepath
 			String[] classpathEntries = {System.getProperty("java.home") + "/lib/rt.jar"}; // JDK classes
