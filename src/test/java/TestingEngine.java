@@ -1,5 +1,6 @@
 import java.util.Collections;
 import org.checkerframework.com.google.common.collect.Lists;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -36,6 +37,15 @@ public class TestingEngine {
 	private static void runTest(String input, String expectedOutput, RefactoringEngine engine) {
 		// Set parser source code
 		parser.setSource(input.toCharArray());
+		parser.setResolveBindings(true);
+		parser.setBindingsRecovery(true);
+		parser.setUnitName("Test.java"); // Required for binding resolution
+
+		// Set classpath and sourcepath
+		String[] classpathEntries = {System.getProperty("java.home") + "/lib/rt.jar"}; // JDK classes
+
+		parser.setEnvironment(classpathEntries, null, null, true);
+		parser.setCompilerOptions(JavaCore.getOptions());
 
 		// Parse the source code into an AST
 		CompilationUnit cu = (CompilationUnit) parser.createAST(null);

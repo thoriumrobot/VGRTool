@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -76,6 +77,16 @@ public class VGRTool {
 			@SuppressWarnings("deprecation")
 			ASTParser parser = ASTParser.newParser(AST.JLS17); // Use Java 17
 			parser.setSource(content.toCharArray());
+			parser.setResolveBindings(true);
+			parser.setBindingsRecovery(true);
+			parser.setUnitName("Test.java"); // Required for binding resolution
+
+			// Set classpath and sourcepath
+			String[] classpathEntries = {System.getProperty("java.home") + "/lib/rt.jar"}; // JDK classes
+
+			parser.setEnvironment(classpathEntries, null, null, true);
+			parser.setCompilerOptions(JavaCore.getOptions());
+
 			CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
 			// Step 5: Extract nullable expressions

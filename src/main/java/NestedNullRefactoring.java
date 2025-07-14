@@ -7,10 +7,12 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.IMethodBinding;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.NullLiteral;
+import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.ReturnStatement;
@@ -22,11 +24,10 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 public class NestedNullRefactoring extends Refactoring {
 	public static final String NAME = "NestedNullRefactoring";
 
-	private final Dictionary<String, Expression> applicableMethods;
+	private final Dictionary<IMethodBinding, Expression> applicableMethods;
 
 	private boolean isApplicableInvocation(MethodInvocation invocation) {
-		String invocationName = invocation.toString();
-		return applicableMethods.get(invocationName) != null;
+		return applicableMethods.get(invocation.resolveMethodBinding()) != null;
 	}
 
 	public NestedNullRefactoring() {
@@ -43,14 +44,14 @@ public class NestedNullRefactoring extends Refactoring {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof PrefixExpression prefix) {
 			if (prefix.getOperand() instanceof MethodInvocation invocation && isApplicableInvocation(invocation)) {
-				System.out.println("[DEBUG] Invocation of appliccable method found");
+				System.out.println("[DEBUG] Invocation of applicable method found");
 				return true;
 			}
 			return false;
 		}
 		if (node instanceof MethodInvocation invocation) {
 			if (isApplicableInvocation(invocation)) {
-				System.out.println("[DEBUG] Invocation of appliccable method found");
+				System.out.println("[DEBUG] Invocation of applicable method found");
 				return true;
 			}
 			return false;
@@ -66,22 +67,25 @@ public class NestedNullRefactoring extends Refactoring {
 		Type retType = method.getReturnType2();
 		boolean isBooleanDeclaration = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
-		if (!(isBooleanDeclaration))
+		if (!(isBooleanDeclaration)) {
 			return false;
+		}
 
 		// Checks if there are any parameters
 		// TODO: Make work with Parameters
 		boolean hasParams = method.parameters().size() > 0;
-		if (hasParams)
+		if (hasParams) {
 			return false;
+		}
 
 		Block body = method.getBody();
 		List<Statement> stmts = body.statements();
 
 		// Checks if there is only one line
 		boolean isOneLine = stmts.size() == 1;
-		if (!isOneLine)
+		if (!isOneLine) {
 			return false;
+		}
 
 		// Possible unneccessary since we already confirmed return type is not void
 		Statement stmt = stmts.get(0);
@@ -105,7 +109,7 @@ public class NestedNullRefactoring extends Refactoring {
 			if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
 					|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
 				System.out.println("[DEBUG] Found one line null check method: " + method.getName());
-				applicableMethods.put(method.getName().toString() + "()", retExpr);
+				applicableMethods.put((method.resolveBinding()), retExpr);
 			}
 		}
 		return false;
@@ -115,33 +119,32 @@ public class NestedNullRefactoring extends Refactoring {
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
-			String invocationName = invocation.toString();
-			Expression expr = (applicableMethods.get(invocationName));
-			System.out.println("Replacing \n" + invocation + "\nWith \n" + expr);
-			rewriter.replace(invocation, expr, null);
+			System.out.println("1");
+			replace(node, rewriter, invocation);
+
 		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
-			String invocationName = invocation.toString();
-			Expression expr = (applicableMethods.get(invocationName));
-			AST ast = node.getAST();
-			InfixExpression infix = (InfixExpression) expr;
-			InfixExpression newInfix = ast.newInfixExpression();
-			if (infix.getLeftOperand() instanceof SimpleName name) {
-				newInfix.setLeftOperand(ast.newSimpleName(name.toString()));
-				newInfix.setRightOperand(ast.newNullLiteral());
-			} else if (infix.getRightOperand() instanceof SimpleName name) {
-				newInfix.setLeftOperand(ast.newNullLiteral());
-				newInfix.setRightOperand(ast.newSimpleName(name.toString()));
-			}
-			InfixExpression.Operator originalOperator = infix.getOperator();
-			if (originalOperator == InfixExpression.Operator.EQUALS) {
-				newInfix.setOperator(InfixExpression.Operator.NOT_EQUALS);
-			} else if (originalOperator == InfixExpression.Operator.NOT_EQUALS) {
-				newInfix.setOperator(InfixExpression.Operator.EQUALS);
-			}
-			System.out.println("Replacing \n" + node + "\nWith \n" + infix);
-			rewriter.replace(node, newInfix, null);
-
+			replace(node, rewriter, invocation);
 		}
 	}
+
+	private void replace(ASTNode node, ASTRewrite rewriter, MethodInvocation invocation) {
+		Expression expr = (applicableMethods.get((invocation.resolveMethodBinding())));
+		if (expr == null) {
+			System.err.println("Cannot find appliccable method for refactoring. ");
+			return;
+		}
+
+		AST ast = node.getAST();
+
+		ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
+		Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, expr);
+		System.out.println("Expression: " + expr + "\nCopied expression: " + copiedExpression);
+		pExpr.setExpression(copiedExpression);
+
+		System.out.println("Refactoring " + node + "\n\tReplacing \n\t" + invocation + "\n\tWith \n\t" + pExpr);
+		rewriter.replace(invocation, pExpr, null);
+
+	}
+
 }
