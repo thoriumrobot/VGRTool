@@ -24,6 +24,7 @@ import org.eclipse.jdt.core.dom.Statement;
  * checks
  */
 public class SentinelRefactoring extends Refactoring {
+	public static final String NAME = "SentinelRefactoring";
 	/**
 	 * List of all sentinels found during traversal of the AST
 	 */
