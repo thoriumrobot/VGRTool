@@ -26,45 +26,46 @@ public class NestedNullRefactoring extends Refactoring {
 
 	private final Dictionary<IMethodBinding, Expression> applicableMethods;
 
-	private boolean isApplicableInvocation(MethodInvocation invocation) {
-		return applicableMethods.get(invocation.resolveMethodBinding()) != null;
-	}
-
 	public NestedNullRefactoring() {
 		applicableMethods = new Hashtable<>();
+	}
+
+	@Override
+	public boolean isApplicable(ASTNode node) {
+
+		if (node instanceof MethodInvocation invocation) {
+			return isApplicable(invocation);
+		}
+
+		// Confirm that the ASTNode is a method
+		if (node instanceof MethodDeclaration declaration) {
+			return isApplicable(declaration);
+		}
+
+		return false;
+
+	}
+
+	/*
+	 * Returns true iff the provided invocation is of a registered one-line method
+	 * that returns the result of a null check
+	 */
+	public boolean isApplicable(MethodInvocation invocation) {
+		// Check if Method Invocation is in applicableMethods
+		if (applicableMethods.get(invocation.resolveMethodBinding()) != null) {
+			System.out.println("[DEBUG] Invocation of applicable method found");
+			return true;
+		}
+		return false;
 	}
 
 	/*
 	 * Returns true iff Node is a one-line method that returns the result of a null
 	 * check
 	 */
-	@Override
-	public boolean isApplicable(ASTNode node) {
-
-		// Check if Method Invocation is in applicableMethods
-		if (node instanceof PrefixExpression prefix) {
-			if (prefix.getOperand() instanceof MethodInvocation invocation && isApplicableInvocation(invocation)) {
-				System.out.println("[DEBUG] Invocation of applicable method found");
-				return true;
-			}
-			return false;
-		}
-		if (node instanceof MethodInvocation invocation) {
-			if (isApplicableInvocation(invocation)) {
-				System.out.println("[DEBUG] Invocation of applicable method found");
-				return true;
-			}
-			return false;
-		}
-
-		// Confirm that the ASTNode is a method
-		if (!(node instanceof MethodDeclaration)) {
-			return false;
-		}
-
+	public boolean isApplicable(MethodDeclaration declaration) {
 		// Confirm that the method returns a boolean
-		MethodDeclaration method = (MethodDeclaration) node;
-		Type retType = method.getReturnType2();
+		Type retType = declaration.getReturnType2();
 		boolean isBooleanDeclaration = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 		if (!(isBooleanDeclaration)) {
@@ -73,12 +74,12 @@ public class NestedNullRefactoring extends Refactoring {
 
 		// Checks if there are any parameters
 		// TODO: Make work with Parameters
-		boolean hasParams = method.parameters().size() > 0;
+		boolean hasParams = declaration.parameters().size() > 0;
 		if (hasParams) {
 			return false;
 		}
 
-		Block body = method.getBody();
+		Block body = declaration.getBody();
 		List<Statement> stmts = body.statements();
 
 		// Checks if there is only one line
@@ -108,8 +109,8 @@ public class NestedNullRefactoring extends Refactoring {
 
 			if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
 					|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-				System.out.println("[DEBUG] Found one line null check method: " + method.getName());
-				applicableMethods.put((method.resolveBinding()), retExpr);
+				System.out.println("[DEBUG] Found one line null check method: " + declaration.getName());
+				applicableMethods.put((declaration.resolveBinding()), retExpr);
 			}
 		}
 		return false;
