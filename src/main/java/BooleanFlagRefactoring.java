@@ -39,69 +39,89 @@ public class BooleanFlagRefactoring extends Refactoring {
 	public boolean isApplicable(ASTNode node) {
 
 		if (node instanceof VariableDeclarationStatement stmt) {
+			return isApplicable(stmt);
+		}
+		if (node instanceof IfStatement ifStmt) {
+			return isApplicable(ifStmt);
+		}
+		return false;
 
-			Type stmtType = stmt.getType();
-			boolean isBooleanDeclaration = (stmtType instanceof PrimitiveType pType
-					&& pType.getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
+	}
 
-			// 1a. Must be boolean variable
-			if (!isBooleanDeclaration)
-				return false;
+	/**
+	 * Checks to see if a VariableDeclarationStatement defines a boolean flag that
+	 * represents another variable's nullness
+	 */
+	public boolean isApplicable(VariableDeclarationStatement stmt) {
+		Type stmtType = stmt.getType();
+		boolean isBooleanDeclaration = (stmtType instanceof PrimitiveType pType
+				&& pType.getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 
-			boolean flagFound = false;
+		// Must be boolean variable
+		if (!isBooleanDeclaration) {
+			return false;
+		}
 
-			// 1b. Search through all declared variables in declaration node for a
-			// booleanflag
-			for (int i = 0; i < stmt.fragments().size(); ++i) {
-				VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
-				SimpleName varName = frag.getName();
-				Expression varInitializer = frag.getInitializer();
-				List<Expression> initExpr = Refactoring.parseExpression(varInitializer);
-				for (Expression expression : initExpr) {
-					if (expression instanceof ConditionalExpression cExpr) {
-						expression = cExpr.getExpression();
-					}
-					if (expression instanceof InfixExpression infix) {
-						if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-								|| infix.getOperator() == InfixExpression.Operator.EQUALS) {
-							Expression leftOperand = infix.getLeftOperand();
-							Expression rightOperand = infix.getRightOperand();
-							if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-									|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
+		boolean flagFound = false;
 
-								AST ast = node.getAST();
-								ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-								Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
-								pExpr.setExpression(copiedExpression);
-								booleanFlags.put(varName.toString(), pExpr);
-								flagFound = true;
-							}
+		// Search through all declared variables in declaration node for a booleanflag
+		for (int i = 0; i < stmt.fragments().size(); ++i) {
+			VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments()
+					.get(i);
+			SimpleName varName = frag.getName();
+			Expression varInitializer = frag.getInitializer();
+			List<Expression> initExpr = Refactoring.getSubExpressions(varInitializer);
+			for (Expression expression : initExpr) {
+				if (expression instanceof ConditionalExpression cExpr) {
+					expression = cExpr.getExpression();
+				}
+				if (expression instanceof InfixExpression infix) {
+					if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
+							|| infix.getOperator() == InfixExpression.Operator.EQUALS) {
+						Expression leftOperand = infix.getLeftOperand();
+						Expression rightOperand = infix.getRightOperand();
+						if ((leftOperand instanceof SimpleName
+								&& rightOperand instanceof NullLiteral)
+								|| (rightOperand instanceof SimpleName
+										&& leftOperand instanceof NullLiteral)) {
+
+							AST ast = stmt.getAST();
+							ParenthesizedExpression pExpr = ast
+									.newParenthesizedExpression();
+							Expression copiedExpression = (Expression) ASTNode
+									.copySubtree(ast, varInitializer);
+							pExpr.setExpression(copiedExpression);
+							booleanFlags.put(varName.toString(), pExpr);
+							flagFound = true;
 						}
 					}
 				}
 			}
-			return flagFound;
 		}
+		return flagFound;
+	}
 
-		// 2. Check if node is an IfStatement with a boolean flag as part of it's
-		// conditional expression
-		if (node instanceof IfStatement ifStmt) {
-			Expression condition = ifStmt.getExpression();
-			List<Expression> exprFragments = Refactoring.parseExpression(condition);
-			for (Expression expr : exprFragments) {
-				if (expr instanceof InfixExpression infix && (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-						|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
-					Expression leftOperand = infix.getLeftOperand();
-					Expression rightOperand = infix.getRightOperand();
+	// Check if node is an IfStatement with a boolean flag as part of it's
+	// conditional expression
+	public boolean isApplicable(IfStatement ifStmt) {
+		Expression condition = ifStmt.getExpression();
+		List<Expression> exprFragments = Refactoring.getSubExpressions(condition);
+		for (Expression expr : exprFragments) {
+			if (expr instanceof InfixExpression infix && (infix
+					.getOperator() == InfixExpression.Operator.NOT_EQUALS
+					|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
+				Expression leftOperand = infix.getLeftOperand();
+				Expression rightOperand = infix.getRightOperand();
 
-					if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
-							|| (rightOperand instanceof SimpleName rhs && booleanFlags.get(rhs.toString()) != null)) {
-						return true;
-					}
-				}
-				if (expr instanceof SimpleName sn && booleanFlags.get(sn.toString()) != null) {
+				if ((leftOperand instanceof SimpleName lhs
+						&& booleanFlags.get(lhs.toString()) != null)
+						|| (rightOperand instanceof SimpleName rhs
+								&& booleanFlags.get(rhs.toString()) != null)) {
 					return true;
 				}
+			}
+			if (expr instanceof SimpleName sn && booleanFlags.get(sn.toString()) != null) {
+				return true;
 			}
 		}
 		return false;
@@ -111,7 +131,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (node instanceof IfStatement ifStmt) {
 			Expression condition = ifStmt.getExpression();
-			List<Expression> exprFragments = Refactoring.parseExpression(condition);
+			List<Expression> exprFragments = Refactoring.getSubExpressions(condition);
 			for (Expression expression : exprFragments) {
 				if (expression instanceof InfixExpression infix
 						&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
