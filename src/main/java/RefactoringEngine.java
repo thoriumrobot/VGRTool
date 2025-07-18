@@ -32,15 +32,10 @@ public class RefactoringEngine {
 				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
 				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
 				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
-				case "SeperateVariableRefactoring" ->
-					refactorings.add(new SeperateVariableRefactoring());
-				case "All" -> refactorings.addAll(
-						List.of(
-								new AddNullCheckBeforeDereferenceRefactoring(),
-								new BooleanFlagRefactoring(),
-								new NestedNullRefactoring(),
-								new SentinelRefactoring(),
-								new SeperateVariableRefactoring()));
+				case "SeperateVariableRefactoring" -> refactorings.add(new SeperateVariableRefactoring());
+				case "All" -> refactorings.addAll(List.of(new AddNullCheckBeforeDereferenceRefactoring(),
+						new BooleanFlagRefactoring(), new NestedNullRefactoring(), new SentinelRefactoring(),
+						new SeperateVariableRefactoring()));
 				default -> System.err.println("Unknown refactoring: " + name);
 			}
 		}
@@ -63,8 +58,7 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: "
-							+ node.getClass().getSimpleName());
+					System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
 
 					if (refactoring.isApplicable(node)) {
 						System.out.println("[DEBUG] Applying refactoring to: " + node);
