@@ -53,8 +53,7 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: "
-							+ node.getClass().getSimpleName());
+					System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
 
 					if (refactoring.isApplicable(node)) {
 						System.out.println("[DEBUG] Applying refactoring to: " + node);
