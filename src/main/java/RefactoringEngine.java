@@ -1,6 +1,5 @@
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -8,7 +7,6 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
 import org.eclipse.jdt.core.dom.CompilationUnit;
-import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.jface.text.Document;
 import org.eclipse.text.edits.MalformedTreeException;
@@ -18,31 +16,28 @@ public class RefactoringEngine {
 	private static final Logger logger = Logger.getLogger(VGRTool.class.getName());
 
 	private final List<Refactoring> refactorings;
-	@SuppressWarnings("unused")
-	private final Set<Expression> expressionsPossiblyNull;
 
-	public RefactoringEngine(List<String> refactoringNames, Set<Expression> expressionsPossiblyNull) {
-		this.expressionsPossiblyNull = expressionsPossiblyNull;
+	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
 			switch (name) {
-				case "AddNullCheckBeforeDereferenceRefactoring" ->
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
-				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
-				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
-				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
-				case "SeperateVariableRefactoring" -> refactorings.add(new SeperateVariableRefactoring());
-				case "All" -> refactorings.addAll(List.of(new AddNullCheckBeforeDereferenceRefactoring(),
-						new BooleanFlagRefactoring(), new NestedNullRefactoring(), new SentinelRefactoring(),
-						new SeperateVariableRefactoring()));
+				// case "BooleanFlagRefactoring" -> refactorings.add(new
+				// BooleanFlagRefactoring());
+				// case "NestedNullRefactoring" -> refactorings.add(new
+				// NestedNullRefactoring());
+				// case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				// case "SeperateVariableRefactoring" -> refactorings.add(new
+				// SeperateVariableRefactoring());
 				default -> System.err.println("Unknown refactoring: " + name);
 			}
-		}
 
-		if (refactorings.isEmpty()) {
-			System.err.println("No valid refactorings specified. Exiting.");
-			System.exit(1);
+			if (refactorings.isEmpty()) {
+				System.err.println("No valid refactorings specified. Exiting.");
+				System.exit(1);
+			}
 		}
 	}
 
@@ -58,7 +53,8 @@ public class RefactoringEngine {
 			cu.accept(new ASTVisitor() {
 				@Override
 				public void preVisit(ASTNode node) {
-					System.out.println("[DEBUG] Visiting AST Node: " + node.getClass().getSimpleName());
+					System.out.println("[DEBUG] Visiting AST Node: "
+							+ node.getClass().getSimpleName());
 
 					if (refactoring.isApplicable(node)) {
 						System.out.println("[DEBUG] Applying refactoring to: " + node);
