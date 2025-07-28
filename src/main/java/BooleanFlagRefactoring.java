@@ -65,8 +65,8 @@ public class BooleanFlagRefactoring extends Refactoring {
 		boolean flagFound = false;
 
 		// Search through all declared variables in declaration node for a booleanflag
-		for (int i = 0; i < stmt.fragments().size(); ++i) {
-			VariableDeclarationFragment frag = (VariableDeclarationFragment) stmt.fragments().get(i);
+		List<VariableDeclarationFragment> fragments = stmt.fragments();
+		for (VariableDeclarationFragment frag : fragments) {
 			SimpleName varName = frag.getName();
 			Expression varInitializer = frag.getInitializer();
 			List<Expression> initExpr = Refactoring.getSubExpressions(varInitializer);
