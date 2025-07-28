@@ -89,7 +89,8 @@ public class NestedNullRefactoring extends Refactoring {
 		}
 
 		// Checks if there are any parameters
-		// TODO: Make work with Parameters
+		// TODO: Make work with parameters in case of methods that take variables to
+		// check as inputs, such as `checkObject(Object o) { return o !=null }}`
 		boolean hasParams = declaration.parameters().size() > 0;
 		if (hasParams) {
 			return false;
@@ -98,7 +99,6 @@ public class NestedNullRefactoring extends Refactoring {
 		Block body = declaration.getBody();
 		List<Statement> stmts = body.statements();
 
-		// Checks if there is only one line
 		boolean isOneLine = stmts.size() == 1;
 		if (!isOneLine) {
 			return false;
@@ -137,7 +137,6 @@ public class NestedNullRefactoring extends Refactoring {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
-
 		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
