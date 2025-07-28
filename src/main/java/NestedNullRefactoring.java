@@ -1,4 +1,5 @@
 
+import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
@@ -21,6 +22,12 @@ import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
+/**
+ * This class represents a refactoring in which invocations to private one line
+ * methods which return the nullness of a value are replaced with the method's
+ * one-line null check. Preserves semantics by copying the invoked code
+ * precisely.
+ */
 public class NestedNullRefactoring extends Refactoring {
 	public static final String NAME = "NestedNullRefactoring";
 
@@ -37,7 +44,6 @@ public class NestedNullRefactoring extends Refactoring {
 			return isApplicable(invocation);
 		}
 
-		// Confirm that the ASTNode is a method
 		if (node instanceof MethodDeclaration declaration) {
 			return isApplicable(declaration);
 		}
@@ -69,6 +75,16 @@ public class NestedNullRefactoring extends Refactoring {
 		boolean isBooleanDeclaration = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 		if (!(isBooleanDeclaration)) {
+			return false;
+		}
+
+		/*
+		 * Ensure the method declaration is private or package-private (default if not
+		 * modifier).
+		 * https://docs.oracle.com/javase/tutorial/java/javaOO/accesscontrol.html
+		 */
+		if (((declaration.getModifiers() & Modifier.PUBLIC) == Modifier.PUBLIC)
+				|| (declaration.getModifiers() & Modifier.PROTECTED) == Modifier.PROTECTED) {
 			return false;
 		}
 
@@ -120,7 +136,6 @@ public class NestedNullRefactoring extends Refactoring {
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
-			System.out.println("1");
 			replace(node, rewriter, invocation);
 
 		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
@@ -132,7 +147,7 @@ public class NestedNullRefactoring extends Refactoring {
 	private void replace(ASTNode node, ASTRewrite rewriter, MethodInvocation invocation) {
 		Expression expr = (applicableMethods.get((invocation.resolveMethodBinding())));
 		if (expr == null) {
-			System.err.println("Cannot find appliccable method for refactoring. ");
+			System.err.println("Cannot find applicable method for refactoring. ");
 			return;
 		}
 

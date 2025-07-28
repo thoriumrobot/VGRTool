@@ -18,7 +18,7 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkNull() {
+				    private boolean checkNull() {
 				        return str != null;
 				    }
 
@@ -38,7 +38,7 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkNull() {
+				    private boolean checkNull() {
 				        return str != null;
 				    }
 
@@ -63,11 +63,11 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkNullOverloaded() {
+				    private boolean checkNullOverloaded() {
 				        return str != null;
 				    }
 
-				    public boolean checkNullOverloaded(Object var) {
+				    private boolean checkNullOverloaded(Object var) {
 				        return var != null;
 				    }
 
@@ -95,11 +95,11 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkNullOverloaded() {
+				    private boolean checkNullOverloaded() {
 				        return str != null;
 				    }
 
-				    public boolean checkNullOverloaded(Object var) {
+				    private boolean checkNullOverloaded(Object var) {
 				        return var != null;
 				    }
 
@@ -132,7 +132,7 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkEqualsNull() {
+				    private boolean checkEqualsNull() {
 				        return str == null;
 				    }
 
@@ -152,7 +152,7 @@ public class NestedNullTesting {
 				public class NestedNullTest {
 				    String str = "Hello World";
 
-				    public boolean checkEqualsNull() {
+				    private boolean checkEqualsNull() {
 				        return str == null;
 				    }
 
