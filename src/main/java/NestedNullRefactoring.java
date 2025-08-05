@@ -1,4 +1,3 @@
-
 import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
@@ -39,7 +38,6 @@ public class NestedNullRefactoring extends Refactoring {
 
 	@Override
 	public boolean isApplicable(ASTNode node) {
-
 		if (node instanceof MethodInvocation invocation) {
 			return isApplicable(invocation);
 		}
@@ -49,7 +47,6 @@ public class NestedNullRefactoring extends Refactoring {
 		}
 
 		return false;
-
 	}
 
 	/*
@@ -57,7 +54,6 @@ public class NestedNullRefactoring extends Refactoring {
 	 * that returns the result of a null check
 	 */
 	public boolean isApplicable(MethodInvocation invocation) {
-		// Check if Method Invocation is in applicableMethods
 		if (applicableMethods.get(invocation.resolveMethodBinding()) != null) {
 			System.out.println("[DEBUG] Invocation of applicable method found");
 			return true;
@@ -66,15 +62,14 @@ public class NestedNullRefactoring extends Refactoring {
 	}
 
 	/*
-	 * Returns true iff Node is a one-line method that returns the result of a null
-	 * check
+	 * Returns true iff Node is a one-line private or package-private method that
+	 * returns the result of a null check
 	 */
 	public boolean isApplicable(MethodDeclaration declaration) {
-		// Confirm that the method returns a boolean
 		Type retType = declaration.getReturnType2();
-		boolean isBooleanDeclaration = (retType.isPrimitiveType()
+		boolean returnsBoolean = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
-		if (!(isBooleanDeclaration)) {
+		if (!(returnsBoolean)) {
 			return false;
 		}
 
@@ -88,8 +83,6 @@ public class NestedNullRefactoring extends Refactoring {
 			return false;
 		}
 
-		// Checks if there are any parameters
-		// TODO: Make work with Parameters
 		boolean hasParams = declaration.parameters().size() > 0;
 		if (hasParams) {
 			return false;
@@ -98,7 +91,6 @@ public class NestedNullRefactoring extends Refactoring {
 		Block body = declaration.getBody();
 		List<Statement> stmts = body.statements();
 
-		// Checks if there is only one line
 		boolean isOneLine = stmts.size() == 1;
 		if (!isOneLine) {
 			return false;
@@ -110,7 +102,7 @@ public class NestedNullRefactoring extends Refactoring {
 			return false;
 		}
 
-		// Checks to make sure return statement is of a single equality check
+		// Checks that the return statement is of a single equality check
 		Expression retExpr = ((ReturnStatement) stmt).getExpression();
 		if (!(retExpr instanceof InfixExpression)) {
 			return false;
@@ -137,7 +129,6 @@ public class NestedNullRefactoring extends Refactoring {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
-
 		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
