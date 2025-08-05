@@ -39,6 +39,9 @@ public class TestingEngine {
 		parser.setSource(input.toCharArray());
 		parser.setResolveBindings(true);
 		parser.setBindingsRecovery(true);
+
+		// The unit name must match the name of the main class declared in the source.
+		// For our test cases the class is always Test
 		parser.setUnitName("Test.java"); // Required for binding resolution
 
 		// Set classpath and sourcepath
