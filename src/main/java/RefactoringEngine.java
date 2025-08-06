@@ -28,7 +28,7 @@ public class RefactoringEngine {
 				// BooleanFlagRefactoring());
 				// case "NestedNullRefactoring" -> refactorings.add(new
 				// NestedNullRefactoring());
-				// case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
 				// case "SeperateVariableRefactoring" -> refactorings.add(new
 				// SeperateVariableRefactoring());
 				default -> System.err.println("Unknown refactoring: " + name);
