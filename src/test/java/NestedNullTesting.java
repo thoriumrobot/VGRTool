@@ -170,4 +170,55 @@ public class NestedNullTesting {
 				""";
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void fieldAccessTest() {
+		String input = """
+				public class NestedNullTest {
+				    private class InternalTest {
+				    	public String s;
+				    }
+
+				    InternalTest s = new InternalTest();
+
+				    private boolean checkEqualsNull() {
+				        return s.s == null;
+				    }
+
+				    public void test() {
+
+				        if (checkEqualsNull()) {
+				            ;
+				        }
+
+				        if (!checkEqualsNull()) {
+				            ;
+				        }
+				    }
+				}				""";
+		String expectedOutput = """
+				public class NestedNullTest {
+				    private class InternalTest {
+				    	public String s;
+				    }
+
+				    InternalTest s = new InternalTest();
+
+				    private boolean checkEqualsNull() {
+				        return s.s == null;
+				    }
+
+				    public void test() {
+
+				        if ((s.s == null)) {
+				            ;
+				        }
+
+				        if (!(s.s == null)) {
+				            ;
+				        }
+				    }
+				}				""";
+		test(input, expectedOutput);
+	}
 }

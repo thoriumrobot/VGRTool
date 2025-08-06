@@ -7,6 +7,7 @@ import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
 import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.IMethodBinding;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.MethodDeclaration;
@@ -15,6 +16,7 @@ import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.PrimitiveType;
+import org.eclipse.jdt.core.dom.QualifiedName;
 import org.eclipse.jdt.core.dom.ReturnStatement;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.Statement;
@@ -62,8 +64,8 @@ public class NestedNullRefactoring extends Refactoring {
 	}
 
 	/*
-	 * Returns true iff Node is a one-line private method that
-	 * returns the result of a null check
+	 * Returns true iff Node is a one-line private method that returns the result of
+	 * a null check
 	 */
 	private boolean isApplicableImpl(MethodDeclaration declaration) {
 		// getReturnType() is deprecated and replaced by getReturnType2()
@@ -113,14 +115,21 @@ public class NestedNullRefactoring extends Refactoring {
 			Expression leftOperand = infix.getLeftOperand();
 			Expression rightOperand = infix.getRightOperand();
 
-			if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-					|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-				System.out.println(
-						"[DEBUG] Found one line null check method: " + declaration.getName());
+			if ((isValidOperand(leftOperand) && rightOperand instanceof NullLiteral)
+					|| (isValidOperand(rightOperand) && leftOperand instanceof NullLiteral)) {
+				System.out.println("[DEBUG] Found one line null check method: " + declaration.getName());
 				applicableMethods.put((declaration.resolveBinding()), retExpr);
 			}
 		}
 		return false;
+	}
+
+	/*
+	 * Returns true iff the provided expression can be on one side of a refactorable
+	 * null equality check, i.e. it represents a valid variable or constant.
+	 */
+	private boolean isValidOperand(Expression operand) {
+		return (operand instanceof SimpleName || operand instanceof FieldAccess || operand instanceof QualifiedName);
 	}
 
 	@Override
@@ -128,8 +137,7 @@ public class NestedNullRefactoring extends Refactoring {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
-		} else if (node instanceof PrefixExpression prefix
-				&& prefix.getOperator() == PrefixExpression.Operator.NOT
+		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
 		}
