@@ -73,13 +73,8 @@ public class NestedNullRefactoring extends Refactoring {
 			return false;
 		}
 
-		/*
-		 * Ensure the method declaration is private or package-private (default if not
-		 * modifier).
-		 * https://docs.oracle.com/javase/tutorial/java/javaOO/accesscontrol.html
-		 */
-		if (((declaration.getModifiers() & Modifier.PUBLIC) == Modifier.PUBLIC)
-				|| (declaration.getModifiers() & Modifier.PROTECTED) == Modifier.PROTECTED) {
+		// Ensure the method declaration is private
+		if (!((declaration.getModifiers() & Modifier.PRIVATE) == Modifier.PRIVATE)) {
 			return false;
 		}
 
