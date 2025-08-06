@@ -39,11 +39,11 @@ public class NestedNullRefactoring extends Refactoring {
 	@Override
 	public boolean isApplicable(ASTNode node) {
 		if (node instanceof MethodInvocation invocation) {
-			return isApplicable(invocation);
+			return isApplicableImpl(invocation);
 		}
 
 		if (node instanceof MethodDeclaration declaration) {
-			return isApplicable(declaration);
+			return isApplicableImpl(declaration);
 		}
 
 		return false;
@@ -53,7 +53,7 @@ public class NestedNullRefactoring extends Refactoring {
 	 * Returns true iff the provided invocation is of a registered one-line method
 	 * that returns the result of a null check
 	 */
-	public boolean isApplicable(MethodInvocation invocation) {
+	private boolean isApplicableImpl(MethodInvocation invocation) {
 		if (applicableMethods.get(invocation.resolveMethodBinding()) != null) {
 			System.out.println("[DEBUG] Invocation of applicable method found");
 			return true;
@@ -62,10 +62,11 @@ public class NestedNullRefactoring extends Refactoring {
 	}
 
 	/*
-	 * Returns true iff Node is a one-line private or package-private method that
+	 * Returns true iff Node is a one-line private method that
 	 * returns the result of a null check
 	 */
-	public boolean isApplicable(MethodDeclaration declaration) {
+	private boolean isApplicableImpl(MethodDeclaration declaration) {
+		// getReturnType() is deprecated and replaced by getReturnType2()
 		Type retType = declaration.getReturnType2();
 		boolean returnsBoolean = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
@@ -94,7 +95,6 @@ public class NestedNullRefactoring extends Refactoring {
 			return false;
 		}
 
-		// Possible unneccessary since we already confirmed return type is not void
 		Statement stmt = stmts.get(0);
 		if (!(stmt instanceof ReturnStatement)) {
 			return false;
@@ -115,7 +115,8 @@ public class NestedNullRefactoring extends Refactoring {
 
 			if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
 					|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-				System.out.println("[DEBUG] Found one line null check method: " + declaration.getName());
+				System.out.println(
+						"[DEBUG] Found one line null check method: " + declaration.getName());
 				applicableMethods.put((declaration.resolveBinding()), retExpr);
 			}
 		}
@@ -127,7 +128,8 @@ public class NestedNullRefactoring extends Refactoring {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
-		} else if (node instanceof PrefixExpression prefix && prefix.getOperator() == PrefixExpression.Operator.NOT
+		} else if (node instanceof PrefixExpression prefix
+				&& prefix.getOperator() == PrefixExpression.Operator.NOT
 				&& prefix.getOperand() instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
 		}
