@@ -212,6 +212,41 @@ public class SentinelTesting {
 		test(input, expectedOutput);
 	}
 
+	@Test
+	public void shadowingCheck2() {
+		String input = """
+				public class SentinelTest {
+				    int val = 0;
+				    String str = "Hello World";
+				    if (str == null) {
+				        val = -1;
+				    }
+				    public void test() {
+					val = -1;
+				        if (val == -1) {
+						;
+				        }
+				    }
+				}
+				                        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    int val = 0;
+				    String str = "Hello World";
+				    if (str == null) {
+				        val = -1;
+				    }
+				    public void test() {
+					val = -1;
+				        if (val == -1) {
+						;
+				        }
+				    }
+				}
+				                        """;
+		test(input, expectedOutput);
+	}
+
 	public void variableReassignmentTest() {
 		String input = """
 				public class SentinelTest {
