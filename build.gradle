@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'application'
 	id("com.diffplug.spotless") version "7.0.4"
+	id 'jacoco'
 }
 
 group = 'com.example'
@@ -59,6 +60,7 @@ java {
 }
 }
 
+
 tasks.named('build') {
 	dependsOn 'spotlessJavaCheck'
 	tasks.findByName('spotlessJavaCheck').mustRunAfter 'compileJava'
@@ -96,7 +98,19 @@ tasks.named('test', Test) {
 	testLogging {
 		events "passed"
 	}
+
+	finalizedBy jacocoTestReport // Generate test coverage report after tests are run
 }
+
+
+jacocoTestReport {
+	dependsOn test // tests are required to run before generating the report
+	doLast {
+		println("Full coverage report available at ${reports.html.outputLocation.get()}/index.html") // jacoco has no option to print results to cli
+	}
+}
+
+
 
 configurations.all {
 	resolutionStrategy.eachDependency { DependencyResolveDetails details ->
