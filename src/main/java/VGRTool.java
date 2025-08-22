@@ -123,4 +123,27 @@ public class VGRTool {
 			LOGGER.error("Error processing file: {}", file.getPath(), e);
 		}
 	}
+
+	
+	private static Set<Expression> extractExpressionsPossiblyNull(CompilationUnit cu) {
+		Set<Expression> expressions = new HashSet<>();
+		cu.accept(new ASTVisitor() {
+			@Override
+			public boolean visit(MethodInvocation node) {
+				if (node.getExpression() != null) {
+					expressions.add(node.getExpression());
+				}
+				return super.visit(node);
+			}
+
+			@Override
+			public boolean visit(FieldAccess node) {
+				if (node.getExpression() != null) {
+					expressions.add(node.getExpression());
+				}
+				return super.visit(node);
+			}
+		});
+		return expressions;
+	}
 }
