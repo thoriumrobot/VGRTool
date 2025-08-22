@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Test;
 public class DereferenceTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testSingleRefactoring(input, expectedOutput,
-				AddNullCheckBeforeDereferenceRefactoring.NAME);
+		TestingEngine.testSingleRefactoring(input, expectedOutput, AddNullCheckBeforeDereferenceRefactoring.NAME);
 	}
 
 	@Test
@@ -145,7 +144,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
-						Class<?> dependentObj = null;
+						dependentObj = null;
 						if (dependentObj != null) {
 							;
 						}
@@ -156,7 +155,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
-						Class<?> dependentObj = null;
+						dependentObj = null;
 						if (dependentObj != null) {
 							;
 						}

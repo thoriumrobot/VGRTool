@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.ConditionalExpression;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.IfStatement;
@@ -62,6 +63,11 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		if (node instanceof IfStatement ifStmt) {
 			return isApplicable(ifStmt);
 		}
+
+		if (node instanceof Assignment assignment) {
+			verifyRefactors(assignment);
+		}
+
 		System.out.println("[DEBUG] Node " + node.getClass().getSimpleName() + " is NOT applicable. Skipping.");
 		return false;
 	}
@@ -159,5 +165,19 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			rewriter.replace(condition, pExpression, null);
 		}
 
+	}
+
+	/*
+	 * Checks Assignment node to see if it re-assigns an existing valid refactoring,
+	 * and if so removes it from validRefactors
+	 */
+	private void verifyRefactors(Assignment assignmentNode) {
+		Expression lhs = assignmentNode.getLeftHandSide();
+		if (!(lhs instanceof SimpleName varName)) {
+			return;
+		}
+		if (validRefactors.get(varName.toString()) != null) {
+			validRefactors.remove(varName.toString());
+		}
 	}
 }
