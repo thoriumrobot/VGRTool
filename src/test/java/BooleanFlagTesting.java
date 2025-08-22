@@ -234,4 +234,25 @@ public class BooleanFlagTesting {
 				""";
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void reassignmentTest() {
+		String input = """
+				public class NewContainerTest {
+				    List<String> items = Arrays.asList("Hello World");
+
+				    public void test() {
+				        boolean hasItems = (items != null && !items.isEmpty());
+					hasItems = true;
+
+				        // Due to reassignment implies nothing
+				        if (hasItems) {
+				            TreeSet<?> set = new TreeSet<>(items);
+				        }
+				    }
+				}
+				""";
+		String expectedOutput = input; // No changes should be made
+		test(input, expectedOutput);
+	}
 }

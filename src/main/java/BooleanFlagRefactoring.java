@@ -3,6 +3,7 @@ import java.util.Hashtable;
 import java.util.List;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
+import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.ConditionalExpression;
 import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.IfStatement;
@@ -11,9 +12,9 @@ import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
 import org.eclipse.jdt.core.dom.PrimitiveType;
 import org.eclipse.jdt.core.dom.SimpleName;
-import org.eclipse.jdt.core.dom.Type;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
+import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 /**
@@ -37,27 +38,24 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 	@Override
 	public boolean isApplicable(ASTNode node) {
-
 		if (node instanceof VariableDeclarationStatement stmt) {
 			return isApplicable(stmt);
-		}
-		if (node instanceof IfStatement ifStmt) {
+		} else if (node instanceof IfStatement ifStmt) {
 			return isApplicable(ifStmt);
+		} else if (node instanceof Assignment assignment) {
+			verifyFlags(assignment);
 		}
 		return false;
-
 	}
 
 	/**
 	 * Checks to see if a VariableDeclarationStatement defines a boolean flag that
 	 * represents another variable's nullness
 	 */
-	public boolean isApplicable(VariableDeclarationStatement stmt) {
-		Type stmtType = stmt.getType();
-		boolean isBooleanDeclaration = (stmtType instanceof PrimitiveType pType
+	private boolean isApplicable(VariableDeclarationStatement stmt) {
+		boolean isBooleanDeclaration = (stmt.getType() instanceof PrimitiveType pType
 				&& pType.getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 
-		// Must be boolean variable
 		if (!isBooleanDeclaration) {
 			return false;
 		}
@@ -74,21 +72,20 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix) {
-					if (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-							|| infix.getOperator() == InfixExpression.Operator.EQUALS) {
-						Expression leftOperand = infix.getLeftOperand();
-						Expression rightOperand = infix.getRightOperand();
-						if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-								|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
+				if ((expression instanceof InfixExpression infix) && (isEqualityOperator(infix.getOperator()))) {
 
-							AST ast = stmt.getAST();
-							ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-							Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
-							pExpr.setExpression(copiedExpression);
-							booleanFlags.put(varName.toString(), pExpr);
-							flagFound = true;
-						}
+					Expression leftOperand = infix.getLeftOperand();
+					Expression rightOperand = infix.getRightOperand();
+
+					if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
+							|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
+
+						AST ast = stmt.getAST();
+						ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
+						Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
+						pExpr.setExpression(copiedExpression);
+						booleanFlags.put(varName.toString(), pExpr);
+						flagFound = true;
 					}
 				}
 			}
@@ -100,54 +97,69 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Analyzes an IfStatement to see if it contains a check utilizing an identified
 	 * boolean flag
 	 */
-	public boolean isApplicable(IfStatement ifStmt) {
-		Expression condition = ifStmt.getExpression();
-		List<Expression> exprFragments = Refactoring.getSubExpressions(condition);
+	private boolean isApplicable(IfStatement ifStmt) {
+		List<Expression> exprFragments = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expr : exprFragments) {
-			if (expr instanceof InfixExpression infix && (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-					|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
+			if (expr instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 
-				if ((leftOperand instanceof SimpleName lhs && booleanFlags.get(lhs.toString()) != null)
-						|| (rightOperand instanceof SimpleName rhs && booleanFlags.get(rhs.toString()) != null)) {
+				if ((leftOperand instanceof SimpleName lhs && isFlag(lhs))
+						|| (rightOperand instanceof SimpleName rhs && isFlag(rhs))) {
 					return true;
 				}
 			}
-			if (expr instanceof SimpleName sn && booleanFlags.get(sn.toString()) != null) {
+			if (expr instanceof SimpleName varName && isFlag(varName)) {
 				return true;
 			}
 		}
 		return false;
 	}
 
+	private boolean isFlag(SimpleName potentialFlag) {
+		return booleanFlags.get(potentialFlag.toString()) != null;
+	}
+
+	private boolean isEqualityOperator(Operator op) {
+		return (op == Operator.NOT_EQUALS || op == Operator.EQUALS);
+	}
+
 	@Override
 	public void apply(ASTNode node, ASTRewrite rewriter) {
-		if (node instanceof IfStatement ifStmt) {
-			Expression condition = ifStmt.getExpression();
-			List<Expression> exprFragments = Refactoring.getSubExpressions(condition);
-			for (Expression expression : exprFragments) {
-				if (expression instanceof InfixExpression infix
-						&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-								|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
-					Expression leftOperand = infix.getLeftOperand();
-					Expression rightOperand = infix.getRightOperand();
-
-					if ((leftOperand instanceof SimpleName var)) {
-						Expression newExpr = booleanFlags.get(var.toString());
-						rewriter.replace(leftOperand, newExpr, null);
-					} else if (rightOperand instanceof SimpleName var) {
-						Expression newExpr = booleanFlags.get(var.toString());
-						rewriter.replace(rightOperand, newExpr, null);
-					}
+		if (!(node instanceof IfStatement ifStmt)) {
+			return;
+		}
+		List<Expression> exprFragments = Refactoring.getSubExpressions(ifStmt.getExpression());
+		for (Expression expression : exprFragments) {
+			if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
+				Expression leftOperand = infix.getLeftOperand();
+				Expression rightOperand = infix.getRightOperand();
+				if ((leftOperand instanceof SimpleName var)) {
+					Expression newExpr = booleanFlags.get(var.toString());
+					rewriter.replace(leftOperand, newExpr, null);
+				} else if (rightOperand instanceof SimpleName var) {
+					Expression newExpr = booleanFlags.get(var.toString());
+					rewriter.replace(rightOperand, newExpr, null);
 				}
-				if (expression instanceof SimpleName sn) {
-					Expression newExpr = booleanFlags.get(sn.toString());
-					rewriter.replace(sn, newExpr, null);
-
-				}
+			}
+			if (expression instanceof SimpleName sn) {
+				Expression newExpr = booleanFlags.get(sn.toString());
+				rewriter.replace(sn, newExpr, null);
 			}
 		}
 	}
 
+	/*
+	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
+	 * if so removes the flag from booleanFlags
+	 */
+	private void verifyFlags(Assignment assignmentNode) {
+		Expression lhs = assignmentNode.getLeftHandSide();
+		if (!(lhs instanceof SimpleName varName)) {
+			return;
+		}
+		if (isFlag(varName)) {
+			booleanFlags.remove(varName.toString());
+		}
+	}
 }
