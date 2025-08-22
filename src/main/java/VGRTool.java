@@ -33,11 +33,8 @@ public class VGRTool {
 
 			LOGGER.info("Usage: java VGRTool <sourceDirPath> <refactoringModules>");
 			LOGGER.info("Available Modules:");
-			LOGGER.info(" - AddNullCheckBeforeDereferenceRefactoring");
-			LOGGER.info(" - BooleanFlagRefactoring");
-			LOGGER.info(" - NestedNullRefactoring");
-			LOGGER.info(" - SentinelRefactoring");
-			LOGGER.info(" - SeperateVariableRefactoring");
+			LOGGER.info(" - " + AddNullCheckBeforeDereferenceRefactoring.NAME);
+			LOGGER.info(" - " + NestedNullRefactoring.NAME);
 			System.exit(1);
 		}
 

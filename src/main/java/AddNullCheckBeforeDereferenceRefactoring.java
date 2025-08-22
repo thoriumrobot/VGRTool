@@ -38,7 +38,13 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
+		super(); // Call to base class (if it expects a name/ID)
+	}
+
+	/** Constructor that accepts a list of possibly-null expressions */
+	public AddNullCheckBeforeDereferenceRefactoring(List<Expression> possiblyNullExpressions) {
 		super();
+		this.possiblyNullExpressions = possiblyNullExpressions;
 	}
 
 	@Override
@@ -51,8 +57,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		if (node instanceof IfStatement ifStmt) {
 			Expression condition = ifStmt.getExpression();
 			if (condition instanceof InfixExpression infix
-					&& (infix.getOperator() == InfixExpression.Operator.NOT_EQUALS
-							|| infix.getOperator() == InfixExpression.Operator.EQUALS)) {
+					&& infix.getOperator() == InfixExpression.Operator.NOT_EQUALS) {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 
@@ -153,7 +158,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			}
 		}
 
-		if (existingIfStatement != null) {
+		if (existingIfStatement != null && assignedVariable != null) {
 			// Retrieve initializer and ensure it's not wrapped in a ParenthesizedExpression
 			Expression initializer = assignedVariable.getInitializer();
 
@@ -176,6 +181,20 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 							initializer.getClass().getSimpleName());
 			}
 		}
+	}
+
+	/**
+	 * Helper function: Checks if an if-condition indirectly checks a variable
+	 * assigned via a ternary
+	 */
+	@SuppressWarnings("unused")
+	private boolean isIndirectNullCheck(Expression condition, SimpleName assignedVariable) {
+		if (condition instanceof InfixExpression infixExpr) {
+			return infixExpr.getOperator() == InfixExpression.Operator.NOT_EQUALS
+					&& infixExpr.getLeftOperand() instanceof SimpleName && ((SimpleName) infixExpr.getLeftOperand())
+							.getIdentifier().equals(assignedVariable.getIdentifier());
+		}
+		return false;
 	}
 
 }
