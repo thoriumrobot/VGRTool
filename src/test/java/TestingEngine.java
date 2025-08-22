@@ -1,5 +1,6 @@
 import java.util.Collections;
 import org.checkerframework.com.google.common.collect.Lists;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTParser;
 import org.eclipse.jdt.core.dom.CompilationUnit;
@@ -13,11 +14,11 @@ public class TestingEngine {
 	 * RefactoringEngine to use to run tests
 	 */
 	private static RefactoringEngine fullEngine = new RefactoringEngine(
-			Lists.newArrayList("SentinelRefactoring", "AddNullCheckBeforeDereferenceRefactoring",
-					"BooleanFlagRefactoring", "NestedNullRefactoring", "SentinelRefactoring"));;
+			Lists.newArrayList(AddNullCheckBeforeDereferenceRefactoring.NAME, NestedNullRefactoring.NAME));
 
+	// TODO: WRITE VARIANTS FOR SUPPORTED JAVA VERSIONS
 	private static ASTParser parser = ASTParser.newParser(AST.getJLSLatest()); // Use appropriate
-																				// JLS version
+	// JLS version
 	;
 
 	public TestingEngine() {
@@ -26,29 +27,32 @@ public class TestingEngine {
 	}
 
 	public static void testAllRefactorings(String input, String expectedOutput) {
-		// Set parser source code
-		parser.setSource(input.toCharArray());
-
-		// Parse the source code into an AST
-		CompilationUnit cu = (CompilationUnit) parser.createAST(null);
-
-		// Apply refactoring
-		String result = fullEngine.applyRefactorings(cu, input);
-
-		// Assert that the output matches the expected transformation
-		assertEquals(expectedOutput, result);
+		runTest(input, expectedOutput, fullEngine);
 	}
 
 	public static void testSingleRefactoring(String input, String expectedOutput, String refactoring) {
+		runTest(input, expectedOutput, new RefactoringEngine(Collections.singletonList(refactoring)));
+	}
 
+	private static void runTest(String input, String expectedOutput, RefactoringEngine engine) {
 		// Set parser source code
 		parser.setSource(input.toCharArray());
+		parser.setResolveBindings(true);
+		parser.setBindingsRecovery(true);
+
+		// The unit name must match the name of the main class declared in the source.
+		// For our test cases the class is always Test
+		parser.setUnitName("Test.java"); // Required for binding resolution
+
+		// Set classpath and sourcepath
+		String[] classpathEntries = {System.getProperty("java.home") + "/lib/rt.jar"}; // JDK classes
+
+		parser.setEnvironment(classpathEntries, null, null, true);
+		parser.setCompilerOptions(JavaCore.getOptions());
 
 		// Parse the source code into an AST
 		CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-		// Set engine
-		RefactoringEngine engine = new RefactoringEngine(Collections.singletonList(refactoring));
 		// Apply refactoring
 		String result = engine.applyRefactorings(cu, input);
 

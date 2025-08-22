@@ -1,7 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -22,31 +23,26 @@ public class RefactoringEngine {
 	 */
 	private final List<Refactoring> refactorings;
 
-	/**
-	 * Default Constructor
-	 * 
-	 * @param refactoringNames
-	 *            A list of Refactorings to use
-	 */
 	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
 			switch (name) {
-				case "AddNullCheckBeforeDereferenceRefactoring" ->
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
-				case "BooleanFlagRefactoring" -> refactorings.add(new BooleanFlagRefactoring());
-				case "NestedNullRefactoring" -> refactorings.add(new NestedNullRefactoring());
-				case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
-				case "SeperateVariableRefactoring" -> refactorings.add(new SeperateVariableRefactoring());
-				default -> LOGGER.error("Unknown refactoring: {}", name);
-
+				// case "BooleanFlagRefactoring" -> refactorings.add(new
+				// BooleanFlagRefactoring());
+				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
+				// case "SentinelRefactoring" -> refactorings.add(new SentinelRefactoring());
+				// case "SeperateVariableRefactoring" -> refactorings.add(new
+				// SeperateVariableRefactoring());
+				default -> System.err.println("Unknown refactoring: " + name);
 			}
-		}
 
-		if (refactorings.isEmpty()) {
-			LOGGER.fatal("No valid refactorings specified. Exiting.");
-			System.exit(1);
+			if (refactorings.isEmpty()) {
+				System.err.println("No valid refactorings specified. Exiting.");
+				System.exit(1);
+			}
 		}
 	}
 

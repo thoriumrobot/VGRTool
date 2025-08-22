@@ -1,92 +1,150 @@
 plugins {
-    id 'java'
-    id 'application'
-    id("com.diffplug.spotless") version "7.0.4"
+	id 'java'
+	id 'application'
+	id("com.diffplug.spotless") version "7.0.4"
+	id 'jacoco'
 }
 
 group = 'com.example'
 version = '1.0'
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 dependencies {
-    // Eclipse JDT Core
-    implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.30.0'
+	// Eclipse JDT Core
+	implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.30.0'
 
-    // Eclipse Text
-    implementation 'org.eclipse.platform:org.eclipse.text:3.12.0'
+	// Eclipse Text
+	implementation 'org.eclipse.platform:org.eclipse.text:3.12.0'
 
-    // Eclipse JFace Text
-    implementation 'org.eclipse.platform:org.eclipse.jface.text:3.16.400'
+	// Eclipse JFace Text
+	implementation 'org.eclipse.platform:org.eclipse.jface.text:3.16.400'
 
-    // Checker Framework Annotations
-    implementation 'org.checkerframework:checker-qual:3.21.0'
-    implementation 'org.checkerframework:checker:3.21.0'
-    annotationProcessor 'org.checkerframework:checker:3.21.0'
+	// Checker Framework Annotations
+	implementation 'org.checkerframework:checker-qual:3.21.0'
+	implementation 'org.checkerframework:checker:3.21.0'
+	annotationProcessor 'org.checkerframework:checker:3.21.0'
 
-    // Apache Commons
-    implementation 'commons-io:commons-io:2.16.1'
+	// Apache Commons
+	implementation 'commons-io:commons-io:2.16.1'
 
-    // javax.annotation API (for @Nullable)
-    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+	// javax.annotation API (for @Nullable)
+	implementation 'javax.annotation:javax.annotation-api:1.3.2'
 
-    // JUnit for testing (optional)
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-
-    // Logging Bill of Materials
-    implementation platform('org.apache.logging.log4j:log4j-bom:2.25.0')
-    // Logging API
-    implementation 'org.apache.logging.log4j:log4j-api:${log4j-api.version}'
-    // The logging implementation (i.e., Log4j Core)
-    runtimeOnly 'org.apache.logging.log4j:log4j-core' 
-    // Log4j JSON-encoding support
-    runtimeOnly 'org.apache.logging.log4j:log4j-layout-template-json'
+	// JUnit for testing (optional)
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+	testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
 
 spotless {
-   java {
-      eclipse() 
-   }
+
+format 'misc', {
+	// define the files to apply `misc` to
+	target '*.gradle', '.gitattributes', '.gitignore'
+
+	// define the steps to apply to those files
+	trimTrailingWhitespace()
+	leadingSpacesToTabs()
+	endWithNewline()
+}
+java {
+	removeUnusedImports()
+	cleanthat()
+	eclipse()
+	formatAnnotations()
+}
 }
 
-afterEvaluate {
-    tasks.getByName('spotlessCheck').dependsOn(tasks.getByName('spotlessApply'))
+tasks.named('build') {
+	dependsOn 'spotlessJavaCheck'
+	tasks.findByName('spotlessJavaCheck').mustRunAfter 'compileJava'
+}
+
+tasks.named('test') {
+	dependsOn 'spotlessCheck'
+
+	useJUnitPlatform()
+
+	maxHeapSize = '1G'
+
+	testLogging {
+		events "passed"
+	}
 }
 
 application {
-    mainClassName = 'VGRTool'
+	mainClassName = 'VGRTool'
 }
 
 tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-    options.compilerArgs += [
-        '-Xlint:unchecked',
-        '-Xlint:deprecation'
-    ]
+	options.encoding = 'UTF-8'
+	options.compilerArgs += [
+		'-Xlint:unchecked',
+		'-Xlint:deprecation'
+	]
 }
 
 tasks.named('test', Test) {
-    useJUnitPlatform()
+	useJUnitPlatform()
 
-    maxHeapSize = '1G'
+	maxHeapSize = '1G'
 
-    testLogging {
-        events "passed"
-    }
+	testLogging {
+		events "passed"
+	}
+	finalizedBy jacocoTestReport // Generate test coverage report after tests are run
+}
+
+jacocoTestReport {
+	dependsOn test // tests are required to run before generating the report
+	reports {
+		xml.required = true
+	}
+	doLast {
+
+		def testReport = file("${buildDir}/reports/jacoco/test/jacocoTestReport.xml")
+
+		// XML Parser does not produce a valid DTD so we need to remove the DOCTYPE declaration to be able to parse the XML
+		def rawXml = testReport.getText('UTF-8').replaceFirst(/<!DOCTYPE[^>]*>/, "")
+		def report = new XmlParser().parseText(rawXml)
+
+		// get percent coverage of specific given type (one of INSTRUCTION, BRANCH, LINE, COMPLEXITY, METHOD, CLASS)
+		def getCoverage = { String type ->
+			def counter = report.counter.find { it.@type == type }
+			def missed = counter.@missed.toInteger()
+			def covered = counter.@covered.toInteger()
+			def coverage = (covered / (missed + covered)) * 100
+
+			// Color output based on how good coverage is
+			def color = '\033[0m' // white
+			if (coverage > 75) {
+				color = '\033[0;32m' // green
+			} else if (coverage > 50) {
+				color = '\033[0;33m' // yellow
+			} else {
+				color = '\033[0;31m' // red
+			}
+			String.format('%s%.2f%%\033[0m', color, coverage)
+		}
+
+		println "Instruction coverage: ${getCoverage('INSTRUCTION')}"
+		println "Line coverage: ${getCoverage('LINE')}"
+		println "Branch coverage: ${getCoverage('BRANCH')}"
+		println "Class coverage: ${getCoverage('CLASS')}"
+		println("Full coverage report available at ${reports.html.outputLocation.get()}/index.html") // jacoco has no option to print results to cli
+	}
 }
 
 configurations.all {
-    resolutionStrategy.eachDependency { DependencyResolveDetails details ->
-        if (details.requested.group == 'org.eclipse.platform' &&
-            details.requested.name == 'org.eclipse.swt.${osgi.platform}') {
-            details.useTarget group: 'org.eclipse.platform', name: 'org.eclipse.swt.gtk.linux.x86_64', version: details.requested.version
-        }
-    }
+	resolutionStrategy.eachDependency { DependencyResolveDetails details ->
+		if (details.requested.group == 'org.eclipse.platform' &&
+			details.requested.name == 'org.eclipse.swt.${osgi.platform}') {
+			details.useTarget group: 'org.eclipse.platform', name: 'org.eclipse.swt.gtk.linux.x86_64', version: details.requested.version
+		}
+	}
 }
-
-
