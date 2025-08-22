@@ -17,7 +17,28 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
-// (Assume Refactoring is an abstract base class provided in the same framework)
+/**
+ * A refactoring module that replaces checks on variables whose nullness is
+ * dependent on the nullness of another with another variable, by checking the
+ * original (independent) variable directly.*
+ * <p>
+ * Example:
+ * 
+ * <pre>{@code
+ * // Before:
+ * Class<?> dependentVar = (independentVar != null ? independentVar.getDependent() : null);
+ * if (dependentVar != null) {
+ * 	// ...
+ * }
+ *
+ * // After:
+ * Class<?> dependentVar = (independentVar != null ? independentVar.getDependent() : null);
+ * if (independentVar != null) {
+ * 	// ...
+ * }
+ * }</pre>
+ * <p>
+ */
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	public static final String NAME = "AddNullCheckBeforeDereferenceRefactoring";
 
@@ -28,14 +49,18 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	@SuppressWarnings("unused")
 	private List<Expression> possiblyNullExpressions;
 
-	/** Default constructor (for RefactoringEngine integration) */
+	/**
+	 * Default constructor (for RefactoringEngine integration)
+	 */
 	public AddNullCheckBeforeDereferenceRefactoring() {
-		super(); // Call to base class (if it expects a name/ID)
+		super();
 	}
 
-	/** Constructor that accepts a list of possibly-null expressions */
+	/**
+	 * Constructor that accepts a list of possibly-null expressions
+	 */
 	public AddNullCheckBeforeDereferenceRefactoring(List<Expression> possiblyNullExpressions) {
-		super();
+		super(); // Call to base class (if it expects a name/ID)
 		this.possiblyNullExpressions = possiblyNullExpressions;
 	}
 
