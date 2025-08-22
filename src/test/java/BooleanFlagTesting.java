@@ -255,4 +255,49 @@ public class BooleanFlagTesting {
 		String expectedOutput = input; // No changes should be made
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void nextedExpressionTest() {
+		String input = """
+				public class BooleanFlagTest {
+				  public void testMethod(String x) {
+				    boolean xIsNull = (!(!(x == null)));
+				    if (xIsNull) {
+				      ;
+				    }
+
+				    boolean xIsNull2 = ((5 > 3) && (2 < 3 && (x == null)));
+				    if (xIsNull2) {
+				      ;
+				    }
+
+				    boolean xIsNull3 = (!((5 > 3) && !(2 < 3 && !(x == null))));
+				    if (xIsNull3) {
+				      ;
+				    }
+				  }
+				}
+				""";
+		String expectedOutput = """
+				public class BooleanFlagTest {
+				  public void testMethod(String x) {
+				    boolean xIsNull = (!(!(x == null)));
+				    if (((!(!(x == null))))) {
+				      ;
+				    }
+
+				    boolean xIsNull2 = ((5 > 3) && (2 < 3 && (x == null)));
+				    if ((((5 > 3) && (2 < 3 && (x == null))))) {
+				      ;
+				    }
+
+				    boolean xIsNull3 = (!((5 > 3) && !(2 < 3 && !(x == null))));
+				    if (((!((5 > 3) && !(2 < 3 && !(x == null)))))) {
+				      ;
+				    }
+				  }
+				}
+				""";
+		test(input, expectedOutput);
+	}
 }
