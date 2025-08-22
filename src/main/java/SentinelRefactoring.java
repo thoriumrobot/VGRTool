@@ -95,7 +95,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	public boolean isApplicable(IfStatement ifStmt) {
-		List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
+		List<Expression> exprs = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expression : exprs) {
 
 			if (!(expression instanceof InfixExpression infix)) {
@@ -208,7 +208,7 @@ public class SentinelRefactoring extends Refactoring {
 	@Override
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (node instanceof IfStatement ifStmt) {
-			List<Expression> exprs = Refactoring.parseExpression(ifStmt.getExpression());
+			List<Expression> exprs = Refactoring.getSubExpressions(ifStmt.getExpression());
 			for (Expression expression : exprs) {
 				if (!(expression instanceof InfixExpression infix)) {
 					return;
