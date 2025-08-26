@@ -18,7 +18,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 /**
  * A refactoring module that replaces checks on variables whose nullness is
  * dependent on the nullness of another with another variable, by checking the
- * original (independent) variable directly.*
+ * original (independent) variable directly.
  * <p>
  * Example:
  * 
@@ -31,7 +31,7 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
  *
  * // After:
  * Class<?> dependentVar = (independentVar != null ? independentVar.getDependent() : null);
- * if (independentVar != null) {
+ * if ((independentVar != null ? independentVar.getDependent() : null) != null) {
  * 	// ...
  * }
  * }</pre>
