@@ -4,8 +4,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Class to perform JUnit tests on the AddNullCheckBeforeDereferenceRefactoring
  * refactoring module
- * 
- * @see DereferenceTesting
  */
 public class DereferenceTesting {
 
