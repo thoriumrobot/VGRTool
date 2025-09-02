@@ -29,7 +29,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
-						if ((independentObj != null ? independentObj.getDependent() : null)) {
+						if ((independentObj != null ? 0 : null) != null) {
 							;
 						}
 					}
@@ -54,7 +54,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj == null ? independentObj.getDependent() : null);
-						if ((independentObj == null ? independentObj.getDependent() : null)) {
+						if ((independentObj == null ? 0 : null) != null) {
 							;
 						}
 					}
@@ -79,7 +79,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
-						if (!((independentObj != null ? independentObj.getDependent() : null))) {
+						if (!((independentObj != null ? 0 : null) != null)) {
 							;
 						}
 					}
@@ -104,7 +104,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = ((independentObj != null && 5 > 3) ? independentObj.getDependent() : null);
-						if (((independentObj != null && 5 > 3) ? independentObj.getDependent() : null)) {
+						if (((independentObj != null && 5 > 3) ? 0 : null) != null) {
 							;
 						}
 					}
@@ -129,7 +129,7 @@ public class DereferenceTesting {
 				public class Test {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? null : independentObj.getDependent());
-						if ((independentObj != null ? null : independentObj.getDependent())) {
+						if ((independentObj != null ? null : 0) != null) {
 							;
 						}
 					}

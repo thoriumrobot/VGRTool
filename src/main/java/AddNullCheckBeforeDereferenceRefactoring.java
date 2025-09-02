@@ -43,7 +43,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	/**
 	 * List of depdendent variables and the independent variable they rely on
 	 */
-	private final Dictionary<String, ConditionalExpression> validRefactors;
+	private final Dictionary<String, Expression> validRefactors;
 
 	/**
 	 * Default constructor (for RefactoringEngine integration)
@@ -76,9 +76,14 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		List<Expression> varInitializerFragments = getSubExpressions(var.getInitializer());
 
 		for (Expression varInitFrag : varInitializerFragments) {
-			if ((varInitFrag instanceof ConditionalExpression ternary)
-					&& ((ternary.getThenExpression() instanceof NullLiteral)
-							|| ternary.getElseExpression() instanceof NullLiteral)) {
+			if (varInitFrag instanceof ConditionalExpression ternary) {
+				if (ternary.getThenExpression() instanceof NullLiteral) {
+					ternary.setElseExpression(ternary.getAST().newNumberLiteral());
+				} else if (ternary.getElseExpression() instanceof NullLiteral) {
+					ternary.setThenExpression(ternary.getAST().newNumberLiteral());
+				} else {
+					return false;
+				}
 				System.out.println("[DEBUG] Found ternary assignment: " + var.getName());
 				System.out.println("[DEBUG] Ternary condition: " + ternary);
 				validRefactors.put(var.getName().toString(), ternary);
@@ -132,13 +137,15 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		List<Expression> conditionFragments = Refactoring.getSubExpressions(ifStmtCondition);
 
 		for (Expression condition : conditionFragments) {
+			// Skip non-equality check conditionals
 			if (!(condition instanceof InfixExpression infix)) {
 				continue;
 			}
 
-			if (infix.getOperator() != InfixExpression.Operator.NOT_EQUALS) {
-				continue;
-			}
+			// Skip expressions with a prefix
+			// if (infix.getOperator() != InfixExpression.Operator.NOT_EQUALS) {
+			// continue;
+			// }
 
 			Expression leftOperand = infix.getLeftOperand();
 			Expression rightOperand = infix.getRightOperand();
@@ -152,17 +159,17 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				continue;
 			}
 
-			ConditionalExpression ternary = validRefactors.get(varName.toString());
+			Expression ternary = validRefactors.get(varName.toString());
 
 			// ✅ Now, safely cast to ConditionalExpression
 			AST ast = node.getAST();
 			ParenthesizedExpression pExpression = ast.newParenthesizedExpression();
-			pExpression.setExpression((ConditionalExpression) ASTNode.copySubtree(ast, ternary));
+			pExpression.setExpression((Expression) ASTNode.copySubtree(ast, ternary));
 
 			System.out.println("[DEBUG] Replacing Variable: " + varName);
 			System.out.println("[DEBUG] New Value: " + pExpression);
 
-			rewriter.replace(condition, pExpression, null);
+			rewriter.replace(varName, pExpression, null);
 		}
 
 	}
