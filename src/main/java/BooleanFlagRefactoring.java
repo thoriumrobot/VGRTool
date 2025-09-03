@@ -43,7 +43,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 		} else if (node instanceof IfStatement ifStmt) {
 			return isApplicable(ifStmt);
 		} else if (node instanceof Assignment assignment) {
-			verifyFlags(assignment);
+			checkReassignment(assignment);
 		}
 		return false;
 	}
@@ -153,7 +153,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
 	 * if so removes the flag from booleanFlags
 	 */
-	private void verifyFlags(Assignment assignmentNode) {
+	private void checkReassignment(Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
