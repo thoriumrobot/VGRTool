@@ -48,7 +48,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	 */
 	private final Dictionary<String, Expression> validRefactors;
 
-
 	private static final Logger LOGGER = LogManager.getLogger();
 
 	/** Default constructor (for RefactoringEngine integration) */
