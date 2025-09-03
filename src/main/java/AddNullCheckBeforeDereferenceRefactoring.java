@@ -11,6 +11,7 @@ import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.ParenthesizedExpression;
+import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -74,19 +75,30 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 	private boolean isApplicable(VariableDeclarationFragment var) {
 		List<Expression> varInitializerFragments = getSubExpressions(var.getInitializer());
-
+		AST ast = var.getAST();
 		for (Expression varInitFrag : varInitializerFragments) {
+
+			Expression condition;
 			if (varInitFrag instanceof ConditionalExpression ternary) {
 				if (ternary.getThenExpression() instanceof NullLiteral) {
-					ternary.setElseExpression(ternary.getAST().newNumberLiteral());
+					// depObj != null when condition is false
+					ParenthesizedExpression tempParen = ast.newParenthesizedExpression();
+					tempParen.setExpression((Expression) ASTNode.copySubtree(ast, ternary.getExpression()));;
+
+					PrefixExpression tempPrefix = ast.newPrefixExpression();
+					tempPrefix.setOperator(PrefixExpression.Operator.NOT);
+					tempPrefix.setOperand(tempParen);
+					condition = tempPrefix;
 				} else if (ternary.getElseExpression() instanceof NullLiteral) {
-					ternary.setThenExpression(ternary.getAST().newNumberLiteral());
+					// depObj != null when condition is true
+					condition = ternary.getExpression();
 				} else {
-					return false;
+					// Ternary must contain NullLiteral
+					continue;
 				}
 				System.out.println("[DEBUG] Found ternary assignment: " + var.getName());
-				System.out.println("[DEBUG] Ternary condition: " + ternary);
-				validRefactors.put(var.getName().toString(), ternary);
+				System.out.println("[DEBUG] Ternary condition: " + condition);
+				validRefactors.put(var.getName().toString(), condition);
 			}
 		}
 		return false;
@@ -169,7 +181,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			System.out.println("[DEBUG] Replacing Variable: " + varName);
 			System.out.println("[DEBUG] New Value: " + pExpression);
 
-			rewriter.replace(varName, pExpression, null);
+			rewriter.replace(condition, pExpression, null);
 		}
 
 	}
