@@ -15,6 +15,8 @@ import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * A refactoring module that replaces checks on variables whose nullness is
@@ -46,9 +48,10 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	 */
 	private final Dictionary<String, Expression> validRefactors;
 
-	/**
-	 * Default constructor (for RefactoringEngine integration)
-	 */
+
+	private static final Logger LOGGER = LogManager.getLogger();
+
+	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
 		super();
 		validRefactors = new Hashtable<>();
@@ -56,7 +59,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 	@Override
 	public boolean isApplicable(ASTNode node) {
-
 		if (node instanceof VariableDeclarationFragment varFrag) {
 			return isApplicable(varFrag);
 		}
@@ -96,8 +98,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 					// Ternary must contain NullLiteral
 					continue;
 				}
-				System.out.println("[DEBUG] Found ternary assignment: " + var.getName());
-				System.out.println("[DEBUG] Ternary condition: " + condition);
+				LOGGER.debug("Found Ternary Assignment: " + var.getName());
+				LOGGER.debug("Found Ternary Condition: " + condition);
 				validRefactors.put(var.getName().toString(), condition);
 			}
 		}
@@ -129,12 +131,10 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				continue;
 			}
 			if (validRefactors.get(varName.toString()) != null) {
-				System.out.println("[DEBUG] Found indirect null check in if-statement: " + condition);
+				LOGGER.debug("Found indirect null check in if-statement: " + condition);
 				return true;
 			}
 		}
-
-		System.out.println("\n" + validRefactors.toString() + "\n");
 		return false;
 	}
 
@@ -145,7 +145,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		}
 
 		Expression ifStmtCondition = ifStmt.getExpression();
-		System.out.println("[DEBUG] Analyzing if-statement: " + ifStmtCondition);
+		LOGGER.debug("Analyzing if-statement: " + ifStmtCondition);
 		List<Expression> conditionFragments = Refactoring.getSubExpressions(ifStmtCondition);
 
 		for (Expression condition : conditionFragments) {
@@ -178,8 +178,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			ParenthesizedExpression pExpression = ast.newParenthesizedExpression();
 			pExpression.setExpression((Expression) ASTNode.copySubtree(ast, ternary));
 
-			System.out.println("[DEBUG] Replacing Variable: " + varName);
-			System.out.println("[DEBUG] New Value: " + pExpression);
+			LOGGER.debug("[DEBUG] Replacing Variable: " + varName);
+			LOGGER.debug("[DEBUG] New Value: " + pExpression);
 
 			rewriter.replace(condition, pExpression, null);
 		}
