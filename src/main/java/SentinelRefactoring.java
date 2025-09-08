@@ -17,6 +17,8 @@ import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 
 import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
+import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
 /**
  * This class represents a refactoring in which integer variables whose values
@@ -29,6 +31,11 @@ public class SentinelRefactoring extends Refactoring {
 	 * List of all sentinels found during traversal of the AST
 	 */
 	private final Dictionary<String, Sentinel> sentinels;
+
+	/**
+	 * Used to skip reparsing AST elements that have already been analyzed
+	 */
+	private boolean skipSentinelDeclaration = false;
 
 	/**
 	 * Helper class for storing the values of a sentinel reference
@@ -84,12 +91,51 @@ public class SentinelRefactoring extends Refactoring {
 		this.sentinels = new Hashtable<>();
 	}
 
+	/*
+	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
+	 * if so removes the flag from booleanFlags
+	 */
+	private void checkReassignment(Assignment assignmentNode) {
+		Expression lhs = assignmentNode.getLeftHandSide();
+		if (!(lhs instanceof SimpleName varName)) {
+			return;
+		}
+		if (sentinels.get(varName.toString()) != null) {
+			sentinels.remove(varName.toString());
+		}
+	}
+
+	/*
+	 * Checks VariableDeclaration to see if a new variable is declared which shadows
+	 * a global variable used as a Sentinel.
+	 */
+	private void checkShadowing(VariableDeclarationStatement declaration) {
+		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration.fragments()) {
+			SimpleName varName = fragment.getName();
+			if (sentinels.get(varName.toString()) != null) {
+				sentinels.remove(varName.toString());
+			}
+
+		}
+	}
+
 	@Override
 	public boolean isApplicable(ASTNode node) {
+		if (skipSentinelDeclaration) {
+			if (node instanceof VariableDeclarationStatement || node instanceof Assignment) {
+				skipSentinelDeclaration = false;
+			}
+			return false;
+		}
 		if (node instanceof IfStatement ifStmt) {
 			return isApplicable(ifStmt);
 		}
-
+		if (node instanceof Assignment assign) {
+			checkReassignment(assign);
+		}
+		if (node instanceof VariableDeclarationStatement declaration) {
+			checkShadowing(declaration);
+		}
 		return false;
 
 	}
@@ -97,7 +143,6 @@ public class SentinelRefactoring extends Refactoring {
 	public boolean isApplicable(IfStatement ifStmt) {
 		List<Expression> exprs = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expression : exprs) {
-
 			if (!(expression instanceof InfixExpression infix)) {
 				return false;
 			}
@@ -144,6 +189,7 @@ public class SentinelRefactoring extends Refactoring {
 		if (!(ifStmt.getThenStatement() instanceof Block thenStmt)) {
 			return;
 		}
+
 		List<Statement> stmts = thenStmt.statements();
 
 		// Checks that there is only one line in the ifStatement
@@ -202,7 +248,55 @@ public class SentinelRefactoring extends Refactoring {
 		} else {
 			return;
 		}
+
 		sentinels.put(sentinelName.toString(), sentinel);
+		skipSentinelDeclaration = true;
+	}
+
+	public Sentinel parseElseStmt(List<Statement> stmts, Sentinel sentinel) {
+		// Checks that there is only one line in the ifStatement
+		if (stmts.size() != 1) {
+			return null;
+		}
+
+		// Checks that the single line is an assignment statement
+		if (!(stmts.get(0) instanceof ExpressionStatement exprStmt
+				&& exprStmt.getExpression() instanceof Assignment assign)) {
+			return null;
+		}
+
+		Expression leftOperand = assign.getLeftHandSide();
+		Expression rightOperand = assign.getRightHandSide();
+		Assignment.Operator assignOperator = assign.getOperator();
+		if (assignOperator != Assignment.Operator.ASSIGN) {
+			return null;
+		}
+
+		Expression nullValue = null;
+		if (leftOperand instanceof SimpleName) {
+			nullValue = rightOperand;
+		} else if (rightOperand instanceof SimpleName) {
+			nullValue = leftOperand;
+		} else {
+			return null;
+		}
+
+		String numLiteral;
+		if (nullValue instanceof NumberLiteral numLit) {
+			numLiteral = numLit.getToken();
+		} else if (nullValue instanceof PrefixExpression pExpr) {
+			numLiteral = pExpr.toString();
+		} else {
+			return null;
+		}
+
+		if (sentinel.getNullValue() == null) {
+			sentinel.setNullCheck(numLiteral);
+		} else if (sentinel.getNullValue() == null) {
+			sentinel.setNotNullCheck(numLiteral);
+		}
+
+		return sentinel;
 	}
 
 	@Override
@@ -239,7 +333,6 @@ public class SentinelRefactoring extends Refactoring {
 
 				Expression replacement = getReplacementExpression(node, equalityVar, equalityExpr, infixOperator);
 				if (replacement != null) {
-					System.err.println("Replacing " + expression + " with " + replacement);
 					rewriter.replace(expression, replacement, null);
 				}
 

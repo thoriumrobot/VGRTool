@@ -44,7 +44,7 @@ public class SentinelTesting {
 				        }
 				    }
 				}
-				                        """;
+					""";
 		test(input, expectedOutput);
 	}
 
@@ -61,7 +61,7 @@ public class SentinelTesting {
 				        }
 
 				        if (val != -1) {
-				            System.out.println("ERROR: str is null");
+				            System.out.println("str is not null");
 				        }
 				    }
 				}
@@ -77,16 +77,16 @@ public class SentinelTesting {
 				        }
 
 				        if (str != null) {
-				            System.out.println("ERROR: str is null");
+				            System.out.println("str is not null");
 				        }
 				    }
 				}
-				                        """;
+				        """;
 		test(input, expectedOutput);
 	}
 
 	@Test
-	public void inverseCheck() {
+	public void swappedSignsTest2() {
 		String input = """
 				public class SentinelTest {
 				    public void test() {
@@ -118,7 +118,7 @@ public class SentinelTesting {
 				        }
 				    }
 				}
-				                        """;
+				        """;
 		test(input, expectedOutput);
 	}
 
@@ -155,12 +155,12 @@ public class SentinelTesting {
 				        }
 				    }
 				}
-				                        """;
+				        """;
 		test(input, expectedOutput);
 	}
 
 	@Test
-	public void shadowingCheck() {
+	public void shadowingTest() {
 		String input = """
 				public class SentinelTest {
 				    int val = 0;
@@ -174,7 +174,7 @@ public class SentinelTesting {
 				            System.out.println("Str is not null");
 				        }
 				    }
-				                        """;
+				        """;
 		String expectedOutput = """
 				public class SentinelTest {
 				    int val = 0;
@@ -188,7 +188,7 @@ public class SentinelTesting {
 				            System.out.println("Str is not null");
 				        }
 				    }
-				                        """;
+				        """;
 		test(input, expectedOutput);
 	}
 
@@ -239,4 +239,210 @@ public class SentinelTesting {
 				                        """;
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void elseIfTest() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (val != -1) {
+				            System.out.println("str is not null");
+					} else if (val == -1) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (str != null) {
+				            System.out.println("str is not null");
+					} else if (str == null) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+					""";
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void infixConditionalTest() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (val == -1 && 5 > 3) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (str == null && 5 > 3) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+					""";
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void inverseCheck() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (!(val == -1)) {
+				            System.out.println("str is null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (!(str == null)) {
+				            System.out.println("str is null");
+				        }
+				    }
+				}
+					""";
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void defaultValue() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+					if (val == 0) {
+				            System.out.println("This tells us nothing.");
+				        }
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (val == -1) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+					if (val == 0) {
+				            System.out.println("This tells us nothing.");
+				        }
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        if (str == null) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+					""";
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void shadowingTest2() {
+		String input = """
+				public class SentinelTest {
+				    int val = 0;
+				    public void test() {
+				        String str = "Hello World";
+				        if (str == null) {
+				            val = -1;
+				        }
+
+					if (val == 0) {
+				            System.out.println("str is not null");
+				        }
+
+					int val = 1;
+
+				        if (val == 0) {
+				            System.out.println("This tells us nothing");
+				        }
+				    }
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    int val = 0;
+				    public void test() {
+				        String str = "Hello World";
+				        if (str == null) {
+				            val = -1;
+				        }
+
+					if (str != null) {
+				            System.out.println("str is not null");
+				        }
+
+					int val = 1;
+
+				        if (val == 0) {
+				            System.out.println("This tells us nothing");
+				        }
+				    }
+				        """;
+		test(input, expectedOutput);
+	}
+
 }
