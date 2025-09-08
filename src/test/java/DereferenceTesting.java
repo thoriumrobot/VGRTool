@@ -41,7 +41,7 @@ public class DereferenceTesting {
 		String input = """
 				public class Test {
 					private void test() {
-						Class<?> dependentObj = (independentObj == null ? independentObj.getDependent() : null);
+						Class<?> dependentObj = (independentObj == null ? factory.getDependent() : null);
 						if (dependentObj != null) {
 							;
 						}
@@ -51,7 +51,7 @@ public class DereferenceTesting {
 		String expectedOutput = """
 				public class Test {
 					private void test() {
-						Class<?> dependentObj = (independentObj == null ? independentObj.getDependent() : null);
+						Class<?> dependentObj = (independentObj == null ? factory.getDependent() : null);
 						if ((independentObj == null)) {
 							;
 						}
@@ -116,7 +116,7 @@ public class DereferenceTesting {
 		String input = """
 				public class Test {
 					private void test() {
-						Class<?> dependentObj = (independentObj != null ? null : independentObj.getDependent());
+						Class<?> dependentObj = (independentObj != null ? null : factory.getDependent());
 						if (dependentObj != null) {
 							;
 						}
@@ -126,7 +126,7 @@ public class DereferenceTesting {
 		String expectedOutput = """
 				public class Test {
 					private void test() {
-						Class<?> dependentObj = (independentObj != null ? null : independentObj.getDependent());
+						Class<?> dependentObj = (independentObj != null ? null : factory.getDependent());
 						if ((!(independentObj != null))) {
 							;
 						}
@@ -154,6 +154,33 @@ public class DereferenceTesting {
 					private void test() {
 						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
 						dependentObj = null;
+						if (dependentObj != null) {
+							;
+						}
+					}
+				}
+				""";
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void reassignmentTest2() {
+		String input = """
+				public class Test {
+					private void test() {
+						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
+						dependentObj = someMethod();
+						if (dependentObj != null) {
+							;
+						}
+					}
+				}
+				""";
+		String expectedOutput = """
+				public class Test {
+					private void test() {
+						Class<?> dependentObj = (independentObj != null ? independentObj.getDependent() : null);
+						dependentObj = someMethod();
 						if (dependentObj != null) {
 							;
 						}

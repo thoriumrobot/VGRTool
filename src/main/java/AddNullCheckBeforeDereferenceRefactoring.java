@@ -34,7 +34,7 @@ import org.apache.logging.log4j.Logger;
  *
  * // After:
  * Class<?> dependentVar = (independentVar != null ? independentVar.getDependent() : null);
- * if ((independentVar != null ? independentVar.getDependent() : null) != null) {
+ * if (independentVar != null) {
  * 	// ...
  * }
  * }</pre>
