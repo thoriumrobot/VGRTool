@@ -10,6 +10,7 @@ import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
@@ -247,18 +248,8 @@ public class SentinelRefactoring extends Refactoring {
 
 			AST ast = node.getAST();
 			InfixExpression replacement = (InfixExpression) ASTNode.copySubtree(ast, null_check);
-
-			if (ParseInt(sent_val.toString()) == ParseInt(cond_val.toString())) {
-				if (null_check_op != cond_op) {
-					System.out.println(
-							"Comparisons Unequal:\n\tnull_check_op: " + null_check_op + "\n\tcond_op: " + cond_op);
-					System.out.println("Reversing Operator: " + null_check_op);
-					replacement.setOperator(reverseOperator(null_check_op));
-					System.out.println("Reversed Operator: " + replacement.getOperator());
-				}
-			} else {
-				System.out.println("Comparison Failed:\n\tsent_val: " + sent_val + "\n\tcond_val: " + cond_val);
-			}
+			boolean originalValueMatch = ParseInt(sent_val.toString()) == ParseInt(cond_val.toString());
+			replacement.setOperator(getRefactoredOperator(null_check_op, cond_op, originalValueMatch));
 			rewriter.replace(expression, replacement, null);
 
 		}
@@ -271,6 +262,19 @@ public class SentinelRefactoring extends Refactoring {
 			return InfixExpression.Operator.EQUALS;
 		}
 		return null;
+
+	}
+
+	public InfixExpression.Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
+			boolean originalValueMatch) {
+		Operator refactoredOperator = originalValueMatch ? null_check_op : reverseOperator(null_check_op);
+		System.out.println("null_check_op: " + null_check_op);
+		System.out.println("sentinel_check_op: " + sentinel_check_op);
+		if (null_check_op != sentinel_check_op && sentinel_check_op == Operator.NOT_EQUALS) {
+			System.out.println("Reversing \"" + null_check_op + "\"...");
+			return (reverseOperator(refactoredOperator));
+		}
+		return refactoredOperator;
 	}
 
 	public boolean isNullCheck(InfixExpression null_check) {
