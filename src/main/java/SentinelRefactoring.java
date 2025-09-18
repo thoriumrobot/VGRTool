@@ -1,4 +1,4 @@
-import java.util.Dictionary;
+import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.List;
 
@@ -10,12 +10,14 @@ import org.eclipse.jdt.core.dom.Expression;
 import org.eclipse.jdt.core.dom.ExpressionStatement;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
+import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-
 import org.eclipse.jdt.core.dom.Statement;
+import org.eclipse.jdt.core.dom.SuperMethodInvocation;
+import org.eclipse.jdt.core.dom.VariableDeclaration;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
@@ -29,7 +31,8 @@ public class SentinelRefactoring extends Refactoring {
 	/**
 	 * List of all sentinels found during traversal of the AST
 	 */
-	private final Dictionary<String, Sentinel> sentinels;
+	private final Hashtable<String, Sentinel> sentinels;
+	private final Hashtable<String, Sentinel_Value> sentinel_values;
 
 	/**
 	 * Used to skip reparsing AST elements that have already been analyzed
@@ -37,7 +40,7 @@ public class SentinelRefactoring extends Refactoring {
 	private boolean skipSentinelDeclaration = false;
 
 	/**
-	 * Helper class for storing the values of a sentinel reference
+	 * Helper class for storing the AST element of a sentinel reference
 	 */
 	protected record Sentinel(Assignment sentinel_assignment, InfixExpression null_check) {
 		public Expression SentinelName() {
@@ -49,9 +52,23 @@ public class SentinelRefactoring extends Refactoring {
 		}
 	}
 
+	/**
+	 * Helper class for storing the value of a sentinel reference and whether it is
+	 * known or not
+	 * 
+	 * @param known
+	 *            Whether the sentinel variable has a known value (can be unset)
+	 * @param value
+	 *            The value of the sentinel variable. Null signifies the variable is
+	 *            declared but unset
+	 */
+	protected record Sentinel_Value(boolean known, Expression value) {
+	};
+
 	public SentinelRefactoring() {
 		super();
 		this.sentinels = new Hashtable<>();
+		this.sentinel_values = new Hashtable<>();
 	}
 
 	/*
@@ -82,6 +99,82 @@ public class SentinelRefactoring extends Refactoring {
 		}
 	}
 
+	private boolean isValidSentinel(Sentinel sentinel, Expression new_value) {
+		System.out.println("Parsing value of Sentinel: " + sentinel.SentinelName());
+
+		// The variable is not in sentinel_values
+		// TODO: Add error warning as this should not happen
+		Sentinel_Value sentinel_value = sentinel_values.get(sentinel.SentinelName().toString());
+		if (sentinel_value == null) {
+			System.out.println("\t ERROR: No sentinel value found for variable " + sentinel.SentinelName());
+			System.out.println("\t sentinels_values: \n\t\t" + sentinel_values);
+			return false;
+		}
+		System.out.println("\t sentinels_values: \n\t\t" + sentinel_values);
+
+		Expression valueExpr = sentinel_value.value();
+
+		// The variable was previously unset
+		if (valueExpr == null) {
+			System.out.println("\t sentinel_value is currently unset");
+			return true;
+		}
+
+		// TODO: Confirm this works with non-ints
+		// The variable previously had the same value as the potential new value
+		if (valueExpr.resolveConstantExpressionValue() == new_value.resolveConstantExpressionValue()) {
+			System.out.println("\t new_sentinel matches old value");
+			return false;
+		}
+		return true;
+
+	}
+
+	private void updateSentinelValues(ASTNode node) {
+		// TODO: Confirm works with the classes VariableDeclaration,
+		// SingleVariableDeclaration
+		if (node instanceof VariableDeclaration declaration) {
+			updateSentinelValues(declaration);
+		} else if (node instanceof Assignment assign) {
+			updateSentinelValues(assign);
+		} else if (node instanceof MethodInvocation || node instanceof SuperMethodInvocation) {
+			System.out.println("Clearing all sentinel values due to method invocation...");
+			Enumeration<String> keys = sentinel_values.keys();
+			while (keys.hasMoreElements()) {
+				String key = keys.nextElement();
+				sentinel_values.put(key, new Sentinel_Value(false, null));
+			}
+		}
+	}
+
+	private void updateSentinelValues(VariableDeclaration declaration) {
+		SimpleName varName = declaration.getName();
+		if (sentinel_values.get(varName.toString()) != null) {
+			System.out.println("Sentinel \"" + varName + "\" redeclared...somehow. Shadowing?");
+			System.out.println("\t sentinels_values: \n\t\t" + sentinel_values);
+			// WARN: Unknown if this is an error
+			// sentinel_values.remove(varName.toString());
+		} else {
+			System.out.println(
+					"Possible Sentinel Declared: \n\tName: " + varName + "\n\tValue: " + declaration.getInitializer());
+			sentinel_values.put(varName.toString(), new Sentinel_Value(false, declaration.getInitializer()));
+		}
+	}
+
+	private void updateSentinelValues(Assignment statement) {
+		if (!(statement.getLeftHandSide() instanceof SimpleName varName)) {
+			System.out.println("Declaration of possible declaration \"" + statement.getLeftHandSide()
+					+ "\" failed due to Assignment node not having a SimpleName on the LHS");
+			return;
+		}
+
+		if (sentinel_values.get(varName.toString()) != null) {
+			System.out.println("Possible Sentinel Value Updated: \n\tName: " + varName + "\n\tValue: "
+					+ statement.getRightHandSide());
+			sentinel_values.put(varName.toString(), new Sentinel_Value(false, statement.getRightHandSide()));
+		}
+	}
+
 	@Override
 	public boolean isApplicable(ASTNode node) {
 		if (skipSentinelDeclaration) {
@@ -91,9 +184,13 @@ public class SentinelRefactoring extends Refactoring {
 			return false;
 		}
 		if (node instanceof IfStatement ifStmt) {
-			System.out.println("Checking ifStmt");
-			return isApplicable(ifStmt);
-		} else if (node instanceof Assignment assign) {
+			if (isApplicable(ifStmt)) {
+				updateSentinelValues(node);
+				return true;
+			}
+		}
+		updateSentinelValues(node);
+		if (node instanceof Assignment assign) {
 			checkReassignment(assign);
 		} else if (node instanceof VariableDeclarationStatement declaration) {
 			checkShadowing(declaration);
@@ -181,16 +278,22 @@ public class SentinelRefactoring extends Refactoring {
 			return;
 		}
 
-		if (ParseInt(sentinel_assignment.getRightHandSide().toString()) == null) {
+		// FIX: Should work for more than integers
+		Expression sentinel_val = sentinel_assignment.getRightHandSide();
+		if (ParseInt(sentinel_val.toString()) == null) {
 			System.out.println("Parsing Sentinel Failed: sentinel_assignment is not an int");
 			return;
 		}
 
 		Sentinel new_sentinel = new Sentinel(sentinel_assignment, null_check);
-		sentinels.put(var_name.toString(), new_sentinel);
+		if (isValidSentinel(new_sentinel, sentinel_val)) {
+			System.out.println("Parsing Sentinel Succeeded! Parsed Sentinel: " + new_sentinel);
+			sentinels.put(var_name.toString(), new_sentinel);
+			skipSentinelDeclaration = true;
+		} else {
+			System.out.println("Parsing Sentinel Failed. New Sentinel value not valid.");
+		}
 
-		skipSentinelDeclaration = true;
-		System.out.println("Parsing Sentinel Succeeded! Parsed Sentinel: " + new_sentinel);
 	}
 
 	@Override
@@ -248,7 +351,9 @@ public class SentinelRefactoring extends Refactoring {
 
 			AST ast = node.getAST();
 			InfixExpression replacement = (InfixExpression) ASTNode.copySubtree(ast, null_check);
-			boolean originalValueMatch = ParseInt(sent_val.toString()) == ParseInt(cond_val.toString());
+			// TODO: Confirm this works with non-ints
+			boolean originalValueMatch = sent_val.resolveConstantExpressionValue() == cond_val
+					.resolveConstantExpressionValue();
 			replacement.setOperator(getRefactoredOperator(null_check_op, cond_op, originalValueMatch));
 			rewriter.replace(expression, replacement, null);
 
