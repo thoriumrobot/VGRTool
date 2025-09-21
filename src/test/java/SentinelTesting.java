@@ -3,7 +3,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Class to perform JUnit tests on the SentinelTesting refactoring module
  * 
- * @see SentinelTesting
+ * @see SentinelRefactoring
  */
 public class SentinelTesting {
 
@@ -479,6 +479,84 @@ public class SentinelTesting {
 				    }
 				}
 				        """;
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void indeterminateNullnessTest2() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 1;
+
+				        if (str != null) {
+				            val = 1;
+				        }
+
+				        if (val == 0) {
+				            System.out.println("Str is not null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 1;
+
+				        if (str != null) {
+				            val = 1;
+				        }
+
+				        if (val == 0) {
+				            System.out.println("Str is not null");
+				        }
+				    }
+				}
+				        """;
+		test(input, expectedOutput);
+	}
+
+	@Test
+	public void unknownValueTest() {
+		String input = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        System.out.println("Method invocation with possible side-effects");
+
+				        if (val == -1) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+				        """;
+		String expectedOutput = """
+				public class SentinelTest {
+				    public void test() {
+				        String str = "Hello World";
+				        int val = 0;
+
+				        if (str == null) {
+				            val = -1;
+				        }
+
+				        System.out.println("Method invocation with possible side-effects");
+
+				        if (str == null) {
+				            System.out.println("ERROR: str is null");
+				        }
+				    }
+				}
+					""";
 		test(input, expectedOutput);
 	}
 
