@@ -53,8 +53,7 @@ public class SentinelRefactoring extends Refactoring {
 		}
 
 		public String toString() {
-			return "Sentinel:\n\tSentinel_Assignment: " + sentinel_assignment() + "\n\tNull_Check: "
-					+ null_check();
+			return "Sentinel:\n\tSentinel_Assignment: " + sentinel_assignment() + "\n\tNull_Check: " + null_check();
 		}
 	}
 
@@ -63,11 +62,10 @@ public class SentinelRefactoring extends Refactoring {
 	 * known or not
 	 * 
 	 * @param known
-	 *              Whether the sentinel variable has a known value (can be unset)
+	 *            Whether the sentinel variable has a known value (can be unset)
 	 * @param value
-	 *              The value of the sentinel variable. Null signifies the variable
-	 *              is
-	 *              declared but unset
+	 *            The value of the sentinel variable. Null signifies the variable is
+	 *            declared but unset
 	 */
 	protected record Sentinel_Value(boolean known, Expression value) {
 	};
@@ -97,8 +95,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * a global variable used as a Sentinel.
 	 */
 	private void checkShadowing(VariableDeclarationStatement declaration) {
-		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration
-				.fragments()) {
+		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration.fragments()) {
 			SimpleName varName = fragment.getName();
 			if (sentinels.get(varName.toString()) != null) {
 				sentinels.remove(varName.toString());
@@ -113,16 +110,14 @@ public class SentinelRefactoring extends Refactoring {
 		Expression sentinelName = sentinel.SentinelName();
 		Sentinel_Value sentinel_value = sentinel_values.get(sentinelName.toString());
 		if (sentinel_value == null) {
-			LOGGER.error("Error when parsing sentinel validity: No sentinel value found for "
-					+ sentinelName);
+			LOGGER.error("Error when parsing sentinel validity: No sentinel value found for " + sentinelName);
 			return false;
 		}
 
 		Expression valueExpr = sentinel_value.value();
 
 		if (valueExpr == null) {
-			LOGGER.debug("Value of Sentinel \"" + sentinelName
-					+ "\" was previously unset. The Sentinel is Valid.");
+			LOGGER.debug("Value of Sentinel \"" + sentinelName + "\" was previously unset. The Sentinel is Valid.");
 			return true;
 		}
 
@@ -131,8 +126,7 @@ public class SentinelRefactoring extends Refactoring {
 		Object oldValue = valueExpr.resolveConstantExpressionValue();
 		Object newValue = new_value.resolveConstantExpressionValue();
 		if (oldValue == newValue) {
-			LOGGER.debug("New value of Sentinel \"" + sentinelName
-					+ "\" matches old value. The Sentinel is invalid.");
+			LOGGER.debug("New value of Sentinel \"" + sentinelName + "\" matches old value. The Sentinel is invalid.");
 			LOGGER.debug("Old Value: " + oldValue);
 			LOGGER.debug("New Value: " + newValue);
 			return false;
@@ -159,8 +153,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	private void updateSentinelValues(VariableDeclaration declaration) {
-		sentinel_values.put(declaration.getName().toString(),
-				new Sentinel_Value(false, declaration.getInitializer()));
+		sentinel_values.put(declaration.getName().toString(), new Sentinel_Value(false, declaration.getInitializer()));
 	}
 
 	private void updateSentinelValues(Assignment statement) {
@@ -169,8 +162,7 @@ public class SentinelRefactoring extends Refactoring {
 		}
 
 		if (sentinel_values.get(varName.toString()) != null) {
-			sentinel_values.put(varName.toString(),
-					new Sentinel_Value(false, statement.getRightHandSide()));
+			sentinel_values.put(varName.toString(), new Sentinel_Value(false, statement.getRightHandSide()));
 		}
 	}
 
