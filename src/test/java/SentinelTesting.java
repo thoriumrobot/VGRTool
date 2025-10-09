@@ -364,7 +364,7 @@ public class SentinelTesting {
 				        int val = 0;
 
 					if (val == 0) {
-				            System.out.println("This tells us nothing.");
+				            // This tells us nothing.
 				        }
 
 				        if (str == null) {
@@ -384,7 +384,7 @@ public class SentinelTesting {
 				        int val = 0;
 
 					if (val == 0) {
-				            System.out.println("This tells us nothing.");
+				            // This tells us nothing.
 				        }
 
 				        if (str == null) {
