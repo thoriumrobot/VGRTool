@@ -109,10 +109,11 @@ public class SentinelRefactoring extends Refactoring {
 	/*
 	 * Detects sentinels which are shadowed by new local variables and removes them.
 	 */
-	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid.
 	private void detectShadowing(VariableDeclarationStatement declaration) {
-		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration
-				.fragments()) {
+		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
+						// valid.
+		List<VariableDeclarationFragment> fragments = declaration.fragments();
+		for (VariableDeclarationFragment fragment : fragments) {
 			SimpleName varName = fragment.getName();
 			if (sentinelCandidates.get(varName.resolveBinding()) != null) {
 				sentinelCandidates.remove(varName.resolveBinding());
@@ -293,7 +294,6 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param ifStmt
 	 *               The node to parse
 	 */
-	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid.
 	public void detectSentinels(IfStatement ifStmt) {
 		// Check if IfStatement conditonal utilizes a null check.
 		InfixExpression null_check = parseNullCheck(Refactoring.getSubExpressions(ifStmt.getExpression()));
@@ -304,6 +304,9 @@ public class SentinelRefactoring extends Refactoring {
 		if (!(ifStmt.getThenStatement() instanceof Block thenStmt)) {
 			return;
 		}
+
+		@SuppressWarnings("unchecked") // Silence type warnings; statements() documentation guarantees type is
+						// valid.
 		List<Statement> stmts = thenStmt.statements();
 
 		// Checks that there is only one line in the ifStatement.
