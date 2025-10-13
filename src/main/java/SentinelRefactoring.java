@@ -185,7 +185,6 @@ public class SentinelRefactoring extends Refactoring {
 				IBinding key = entry.getKey();
 				Sentinel sentinel = sentinelCandidates.get(key);
 				sentinel.lastValue = null;
-				sentinelCandidates.put(key, sentinel);
 			}
 		}
 	}
@@ -212,8 +211,6 @@ public class SentinelRefactoring extends Refactoring {
 			return;
 		}
 		sentinel.lastValue = newValue;
-		sentinelCandidates.put(key, sentinel);
-
 	}
 
 	@Override
@@ -263,7 +260,7 @@ public class SentinelRefactoring extends Refactoring {
 		InfixExpression.Operator operator = infix.getOperator();
 
 		// Check if the condition does a check on an existing sentinel
-		return (isEqualityCheck(operator) && usesSentinel(leftOperand) || usesSentinel(rightOperand));
+		return isEqualityCheck(operator) && (usesSentinel(leftOperand) || usesSentinel(rightOperand));
 	}
 
 	/**
@@ -388,8 +385,8 @@ public class SentinelRefactoring extends Refactoring {
 
 			AST ast = node.getAST();
 			InfixExpression replacement = (InfixExpression) ASTNode.copySubtree(ast, null_check);
-			boolean originalValueMatch = sent_val.resolveConstantExpressionValue() == cond_val
-					.resolveConstantExpressionValue();
+			boolean originalValueMatch = sent_val.resolveConstantExpressionValue().equals(cond_val
+					.resolveConstantExpressionValue());
 			replacement.setOperator(getRefactoredOperator(null_check_op, cond_op, originalValueMatch));
 			rewriter.replace(expression, replacement, null);
 
