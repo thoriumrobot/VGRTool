@@ -356,7 +356,7 @@ public class SentinelTesting {
 	}
 
 	@Test
-	public void defaultValue() {
+	public void unchangedValueTest() {
 		String input = """
 				public class SentinelTest {
 				    public void test() {
