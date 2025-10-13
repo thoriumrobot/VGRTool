@@ -30,7 +30,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * This class represents a refactoring in which integer variables whose values
  * represent the nullness of another variable are refactored into explicit null
- * checks
+ * checks.
  */
 public class SentinelRefactoring extends Refactoring {
 	public static final String NAME = "SentinelRefactoring";
@@ -47,25 +47,25 @@ public class SentinelRefactoring extends Refactoring {
 	private final Map<IBinding, Sentinel> sentinelCandidates;
 	/**
 	 * Set of all sentinel assignments which have already been parsed; Used to
-	 * prevent repeated parsing of same sentinel assignment
+	 * prevent repeated parsing of same sentinel assignment.
 	 */
 	private final Set<Assignment> sentinelAssignments;
 
 	/**
 	 * Helper class for storing the AST element of a sentinel reference and it's
-	 * associated AST elements
+	 * associated AST elements.
 	 */
 	private class Sentinel {
 		/**
-		 * The original assignment statement setting the sentinel's value
+		 * The original assignment statement setting the sentinel's value.
 		 */
 		public Assignment sentinel_assignment;
 		/**
-		 * The conditional expression used to decide the value of the sentinel
+		 * The conditional expression used to decide the value of the sentinel.
 		 */
 		public InfixExpression null_check;
 		/**
-		 * The last value assigned to the sentinel; Used for validity tracking
+		 * The last value assigned to the sentinel; Used for validity tracking.
 		 */
 		public Object lastValue;
 
@@ -89,10 +89,10 @@ public class SentinelRefactoring extends Refactoring {
 
 	/*
 	 * Detects reassignments of existing sentinels If reassignment is detected,
-	 * removes the sentinel from the list of valid sentinels
+	 * removes the sentinel from the list of valid sentinels.
 	 */
 	private void detectReassignment(Assignment assignmentNode) {
-		// Skip assignments that initially define a sentinel
+		// Skip assignments that initially define a sentinel.
 		if (sentinelAssignments.contains(assignmentNode)) {
 			return;
 		}
@@ -107,9 +107,9 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/*
-	 * Detects sentinels which are shadowed by new local variables and removes them
+	 * Detects sentinels which are shadowed by new local variables and removes them.
 	 */
-	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid
+	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid.
 	private void detectShadowing(VariableDeclarationStatement declaration) {
 		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration.fragments()) {
 			SimpleName varName = fragment.getName();
@@ -122,7 +122,7 @@ public class SentinelRefactoring extends Refactoring {
 
 	/**
 	 * Determines whether a possible sentinel value is valid (i.e. safely
-	 * refactorable) by analyzing its associated components
+	 * refactorable) by analyzing its associated components.
 	 * 
 	 * @param sentinel_assignment
 	 *            The original assignment statement setting the sentinel's value
@@ -142,7 +142,7 @@ public class SentinelRefactoring extends Refactoring {
 			return false;
 		}
 
-		// Check if the variable is in map of sentinel candidates
+		// Check if the variable is in map of sentinel candidates.
 		Sentinel sentinel_value = sentinelCandidates.get(sentinelName.resolveBinding());
 		if (sentinel_value == null) {
 			LOGGER.debug("Sentinel '" + sentinelName + "' is not a sentinel candidate. The Sentinel is invalid.");
@@ -224,13 +224,13 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/**
-	 * Parses IfStatement node to see if it either declares or utilizes a sentinel
+	 * Parses IfStatement node to see if it either declares or utilizes a sentinel.
 	 * 
 	 * @param ifStmt
 	 *            The node to parse
 	 */
 	public boolean isApplicable(IfStatement ifStmt) {
-		// Parse IfStatement block for declarations of sentinel candidates
+		// Parse IfStatement block for declarations of sentinel candidates.
 		detectSentinels(ifStmt);
 
 		List<Expression> exprs = Refactoring.getSubExpressions(ifStmt.getExpression());
@@ -244,7 +244,7 @@ public class SentinelRefactoring extends Refactoring {
 
 	/**
 	 * Parses InfixExpression node to see if it either declares or utilizes a
-	 * sentinel
+	 * sentinel.
 	 * 
 	 * @param ifStmt
 	 *            The node to parse
@@ -254,12 +254,12 @@ public class SentinelRefactoring extends Refactoring {
 		Expression rightOperand = infix.getRightOperand();
 		InfixExpression.Operator operator = infix.getOperator();
 
-		// Check if the condition does a check on an existing sentinel
+		// Check if the condition does a check on an existing sentinel.
 		return isEqualityCheck(operator) && (usesSentinel(leftOperand) || usesSentinel(rightOperand));
 	}
 
 	/**
-	 * Detects whether an Expression utilizes a sentinel candidate
+	 * Detects whether an Expression utilizes a sentinel candidate.
 	 * 
 	 * @param expr
 	 *            the Expression to parse
@@ -269,7 +269,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/**
-	 * Detects whether an Expression utilizes a sentinel candidate
+	 * Detects whether an Expression utilizes a sentinel candidate.
 	 * 
 	 * @param expr
 	 *            the Expression to parse
@@ -283,14 +283,14 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/**
-	 * Parses IfStatement node for the creation of sentinels
+	 * Parses IfStatement node for the creation of sentinels.
 	 * 
 	 * @param ifStmt
 	 *            The node to parse
 	 */
-	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid
+	@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is valid.
 	public void detectSentinels(IfStatement ifStmt) {
-		// Check if IfStatement conditonal utilizes a null check
+		// Check if IfStatement conditonal utilizes a null check.
 		InfixExpression null_check = parseNullCheck(Refactoring.getSubExpressions(ifStmt.getExpression()));
 		if (null_check == null) {
 			return;
@@ -301,12 +301,12 @@ public class SentinelRefactoring extends Refactoring {
 		}
 		List<Statement> stmts = thenStmt.statements();
 
-		// Checks that there is only one line in the ifStatement
+		// Checks that there is only one line in the ifStatement.
 		if (stmts.size() != 1) {
 			return;
 		}
 
-		// Checks that the single line is an assignment statement
+		// Checks that the single line is an assignment statement.
 		if (!(stmts.get(0) instanceof ExpressionStatement exprStmt
 				&& exprStmt.getExpression() instanceof Assignment sentinel_assignment)) {
 			return;
@@ -388,7 +388,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/**
-	 * Returns the opposite of the given InfixExpression equality operator
+	 * Returns the opposite of the given InfixExpression equality operator.
 	 */
 	private InfixExpression.Operator reverseOperator(InfixExpression.Operator op) {
 		if (op == InfixExpression.Operator.EQUALS) {
@@ -400,22 +400,22 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	/**
-	 * Returns the conditonal operator to use in a refactored null check
+	 * Returns the conditonal operator to use in a refactored null check.
 	 */
 	public InfixExpression.Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
 			boolean originalValueMatch) {
 		Operator refactoredOperator = originalValueMatch ? null_check_op : reverseOperator(null_check_op);
 
-		// Adjust if the sentinel check uses a negated operator
+		// Adjust if the sentinel check uses a negated operator.
 		boolean negatedOperator = (null_check_op != sentinel_check_op && sentinel_check_op == Operator.NOT_EQUALS);
 		return negatedOperator ? reverseOperator(refactoredOperator) : refactoredOperator;
 	}
 
 	/**
-	 * Detects and returns a null check in a list of expressions
+	 * Detects and returns a null check in a list of expressions.
 	 * 
 	 * @param exprs
-	 *            A list of expressions to parse.
+	 *            A list of expressions to parse
 	 */
 	public InfixExpression parseNullCheck(List<Expression> exprs) {
 		for (Expression expr : exprs) {
