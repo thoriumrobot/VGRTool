@@ -41,7 +41,8 @@ public class SentinelRefactoring extends Refactoring {
 	 * information.
 	 * <p>
 	 * Uses each variable's ({@link org.eclipse.jdt.core.dom.IVariableBinding}) as
-	 * the key, ensuring global uniqueness.
+	 * the key, ensuring global uniqueness. Two variables who have the same name but
+	 * have different scopes will have different IBinding instances.
 	 */
 	private final Map<IBinding, Sentinel> sentinelCandidates;
 	/**
