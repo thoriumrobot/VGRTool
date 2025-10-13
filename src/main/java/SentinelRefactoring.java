@@ -29,7 +29,7 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * This class represents a refactoring in which integer variables whose values
- * represent the nullness of another variables are refactored into explicit null
+ * represent the nullness of another variable are refactored into explicit null
  * checks
  */
 public class SentinelRefactoring extends Refactoring {
