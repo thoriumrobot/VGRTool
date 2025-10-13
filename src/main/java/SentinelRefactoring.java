@@ -1,6 +1,4 @@
-import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -85,7 +83,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * Detects reassignments of existing sentinels If reassignment is detected,
 	 * removes the sentinel from the list of valid sentinels
 	 */
-	private void checkReassignment(Assignment assignmentNode) {
+	private void detectReassignment(Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
@@ -98,9 +96,8 @@ public class SentinelRefactoring extends Refactoring {
 	/*
 	 * Detects sentinels which are shadowed by new local variables and removes them
 	 */
-	private void checkShadowing(VariableDeclarationStatement declaration) {
-		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration
-				.fragments()) {
+	private void detectShadowing(VariableDeclarationStatement declaration) {
+		for (VariableDeclarationFragment fragment : (List<VariableDeclarationFragment>) declaration.fragments()) {
 			SimpleName varName = fragment.getName();
 			if (sentinelCandidates.get(varName.getIdentifier()) != null) {
 				sentinelCandidates.remove(varName.getIdentifier());
@@ -114,16 +111,13 @@ public class SentinelRefactoring extends Refactoring {
 	 * refactorable) by analyzing its associated components
 	 * 
 	 * @param sentinel_assignment
-	 *                            The original assignment statement setting the
-	 *                            sentinel's value
+	 *            The original assignment statement setting the sentinel's value
 	 * @param null_check
-	 *                            The conditional expression used to decide the
-	 *                            value of the
-	 *                            sentinel
+	 *            The conditional expression used to decide the value of the
+	 *            sentinel
 	 * @param newValue
-	 *                            The value assigned to the sentinel when the
-	 *                            null_check condition
-	 *                            is true
+	 *            The value assigned to the sentinel when the null_check condition
+	 *            is true
 	 */
 	private boolean isValidSentinel(Assignment sentinel_assignment, Expression null_check, Object newValue) {
 
@@ -137,8 +131,7 @@ public class SentinelRefactoring extends Refactoring {
 		// Check if the variable is in map of sentinel candidates
 		Sentinel sentinel_value = sentinelCandidates.get(sentinelName.getIdentifier());
 		if (sentinel_value == null) {
-			LOGGER.debug("Sentinel '" + sentinelName
-					+ "' is not a sentinel candidate. The Sentinel is invalid.");
+			LOGGER.debug("Sentinel '" + sentinelName + "' is not a sentinel candidate. The Sentinel is invalid.");
 			return false;
 		}
 
@@ -149,7 +142,7 @@ public class SentinelRefactoring extends Refactoring {
 			LOGGER.debug("Last value of Sentinel \"" + sentinelName + "\" is unknown.");
 			return false;
 		}
-		if (lastValue == newValue) {
+		if (lastValue.equals(newValue)) {
 			LOGGER.debug("New value of Sentinel \"" + sentinelName + "\" matches old value.");
 			LOGGER.debug("\tOld Value: " + lastValue);
 			LOGGER.debug("\tNew Value: " + newValue);
@@ -161,11 +154,11 @@ public class SentinelRefactoring extends Refactoring {
 
 	}
 
-	private void updateSentinelValues(ASTNode node) {
+	private void updateSentinel(ASTNode node) {
 		if (node instanceof VariableDeclaration declaration) {
-			updateSentinelValues(declaration);
+			updateSentinel(declaration);
 		} else if (node instanceof Assignment assign) {
-			updateSentinelValues(assign);
+			updateSentinel(assign);
 		} else if (node instanceof MethodInvocation || node instanceof SuperMethodInvocation) {
 			LOGGER.debug("Clearing all sentinel values due to method invocation...");
 
@@ -178,7 +171,22 @@ public class SentinelRefactoring extends Refactoring {
 		}
 	}
 
-	private void updateSentinelValues(String key, Object newValue) {
+	private void updateSentinel(VariableDeclaration declaration) {
+		String key = declaration.getName().getIdentifier();
+		Object newValue = declaration.getInitializer().resolveConstantExpressionValue();
+		updateSentinel(key, newValue);
+	}
+
+	private void updateSentinel(Assignment statement) {
+		if (!(statement.getLeftHandSide() instanceof SimpleName varName)) {
+			return;
+		}
+		String key = varName.getIdentifier();
+		Object newValue = statement.getRightHandSide().resolveConstantExpressionValue();
+		updateSentinel(key, newValue);
+	}
+
+	private void updateSentinel(String key, Object newValue) {
 		Sentinel sentinel = sentinelCandidates.get(key);
 		if (sentinel == null) {
 			sentinelCandidates.put(key, new Sentinel(null, null, newValue));
@@ -187,21 +195,6 @@ public class SentinelRefactoring extends Refactoring {
 		sentinel.lastValue = newValue;
 		sentinelCandidates.put(key, sentinel);
 
-	}
-
-	private void updateSentinelValues(VariableDeclaration declaration) {
-		String key = declaration.getName().getIdentifier();
-		Object newValue = declaration.getInitializer().resolveConstantExpressionValue();
-		updateSentinelValues(key, newValue);
-	}
-
-	private void updateSentinelValues(Assignment statement) {
-		if (!(statement.getLeftHandSide() instanceof SimpleName varName)) {
-			return;
-		}
-		String key = varName.getIdentifier();
-		Object newValue = statement.getRightHandSide().resolveConstantExpressionValue();
-		updateSentinelValues(key, newValue);
 	}
 
 	@Override
@@ -214,15 +207,15 @@ public class SentinelRefactoring extends Refactoring {
 		}
 		if (node instanceof IfStatement ifStmt) {
 			if (isApplicable(ifStmt)) {
-				updateSentinelValues(node);
+				updateSentinel(node);
 				return true;
 			}
 		}
-		updateSentinelValues(node);
+		updateSentinel(node);
 		if (node instanceof Assignment assign) {
-			checkReassignment(assign);
+			detectReassignment(assign);
 		} else if (node instanceof VariableDeclarationStatement declaration) {
-			checkShadowing(declaration);
+			detectShadowing(declaration);
 		}
 		return false;
 	}
@@ -231,11 +224,11 @@ public class SentinelRefactoring extends Refactoring {
 	 * Parses IfStatement node to see if it either declares or utilizes a sentinel
 	 * 
 	 * @param ifStmt
-	 *               The node to parse
+	 *            The node to parse
 	 */
 	public boolean isApplicable(IfStatement ifStmt) {
 		// Parse IfStatement block for declarations of sentinel candidates
-		parseSentinels(ifStmt);
+		detectSentinels(ifStmt);
 
 		List<Expression> exprs = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expression : exprs) {
@@ -251,7 +244,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * sentinel
 	 * 
 	 * @param ifStmt
-	 *               The node to parse
+	 *            The node to parse
 	 */
 	public boolean isApplicable(InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
@@ -259,27 +252,25 @@ public class SentinelRefactoring extends Refactoring {
 		InfixExpression.Operator operator = infix.getOperator();
 
 		// Check if the condition does a check on an existing sentinel
-		boolean isEqualityCheck = isEqualityCheck(operator);
 		boolean usesSentinel = usesSentinel(leftOperand) || usesSentinel(rightOperand);
-		return (isEqualityCheck && usesSentinel);
+		return (isEqualityCheck(operator) && usesSentinel);
 	}
 
 	/**
 	 * Detects whether an Expression utilizes a sentinel candidate
 	 * 
 	 * @param expr
-	 *             the Expression to parse
+	 *            the Expression to parse
 	 */
 	private boolean isEqualityCheck(InfixExpression.Operator operator) {
-		return ((operator == InfixExpression.Operator.NOT_EQUALS
-				|| operator == InfixExpression.Operator.EQUALS));
+		return ((operator == InfixExpression.Operator.NOT_EQUALS || operator == InfixExpression.Operator.EQUALS));
 	}
 
 	/**
 	 * Detects whether an Expression utilizes a sentinel candidate
 	 * 
 	 * @param expr
-	 *             the Expression to parse
+	 *            the Expression to parse
 	 */
 	private boolean usesSentinel(Expression expr) {
 		if (!(expr instanceof SimpleName sentinel_name)) {
@@ -296,9 +287,9 @@ public class SentinelRefactoring extends Refactoring {
 	 * Parses IfStatement node for the creation of sentinels
 	 * 
 	 * @param ifStmt
-	 *               The node to parse
+	 *            The node to parse
 	 */
-	public void parseSentinels(IfStatement ifStmt) {
+	public void detectSentinels(IfStatement ifStmt) {
 		// Check if IfStatement conditonal utilizes a null check
 		InfixExpression null_check = parseNullCheck(Refactoring.getSubExpressions(ifStmt.getExpression()));
 		if (null_check == null) {
@@ -414,17 +405,17 @@ public class SentinelRefactoring extends Refactoring {
 	public InfixExpression.Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
 			boolean originalValueMatch) {
 		Operator refactoredOperator = originalValueMatch ? null_check_op : reverseOperator(null_check_op);
-		if (null_check_op != sentinel_check_op && sentinel_check_op == Operator.NOT_EQUALS) {
-			return (reverseOperator(refactoredOperator));
-		}
-		return refactoredOperator;
+
+		// Adjust if the sentinel check uses a negated operator
+		boolean negatedOperator = (null_check_op != sentinel_check_op && sentinel_check_op == Operator.NOT_EQUALS);
+		return negatedOperator ? reverseOperator(refactoredOperator) : refactoredOperator;
 	}
 
 	/**
 	 * Detects and returns a null check in a list of expressions
 	 * 
 	 * @param exprs
-	 *              A list of expressions to parse.
+	 *            A list of expressions to parse.
 	 */
 	public InfixExpression parseNullCheck(List<Expression> exprs) {
 		for (Expression expr : exprs) {
@@ -432,10 +423,8 @@ public class SentinelRefactoring extends Refactoring {
 				Expression leftOperand = null_check_candidate.getLeftOperand();
 				Expression rightOperand = null_check_candidate.getRightOperand();
 
-				boolean leftVarRightNull = (leftOperand instanceof SimpleName
-						&& rightOperand instanceof NullLiteral);
-				boolean leftNullRightVar = (rightOperand instanceof SimpleName
-						&& leftOperand instanceof NullLiteral);
+				boolean leftVarRightNull = (leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral);
+				boolean leftNullRightVar = (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral);
 				boolean validComparison = (leftVarRightNull || leftNullRightVar);
 				boolean validOperator = isEqualityCheck(null_check_candidate.getOperator());
 				if (validComparison && validOperator) {
