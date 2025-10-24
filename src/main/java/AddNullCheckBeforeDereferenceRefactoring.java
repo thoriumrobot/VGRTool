@@ -174,7 +174,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 			Expression ternary = validRefactors.get(varName.resolveBinding());
 
-			// ✅ Now, safely cast to ConditionalExpression
 			AST ast = node.getAST();
 			ParenthesizedExpression pExpression = ast.newParenthesizedExpression();
 			pExpression.setExpression((Expression) ASTNode.copySubtree(ast, ternary));
