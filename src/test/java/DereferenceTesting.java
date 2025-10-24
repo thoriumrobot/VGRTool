@@ -189,4 +189,37 @@ public class DereferenceTesting {
 				""";
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void shadowingTest() {
+		String input = """
+				public class Test {
+				    int val = 0;
+				    public void test() {
+				        int val = 0;
+				        String str = "Hello World";
+				        if (str == null) {
+				            val = -1;
+				        }
+				        if (this.val == 0) {
+				            System.out.println("Str is not null");
+				        }
+				    }
+				        """;
+		String expectedOutput = """
+				public class Test {
+				    int val = 0;
+				    public void test() {
+				        int val = 0;
+				        String str = "Hello World";
+				        if (str == null) {
+				            val = -1;
+				        }
+				        if (this.val == 0) {
+				            System.out.println("Str is not null");
+				        }
+				    }
+				        """;
+		test(input, expectedOutput);
+	}
 }
