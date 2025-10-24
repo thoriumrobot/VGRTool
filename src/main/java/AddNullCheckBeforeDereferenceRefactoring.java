@@ -74,7 +74,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			verifyRefactors(assignment);
 		}
 
-		System.out.println("[DEBUG] Node " + node.getClass().getSimpleName() + " is NOT applicable. Skipping.");
+		LOGGER.debug("Node " + node.getClass().getSimpleName() + " is NOT applicable. Skipping.");
 		return false;
 	}
 
@@ -103,8 +103,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 					// Ternary must contain NullLiteral
 					continue;
 				}
-				LOGGER.debug("Found Ternary Assignment: " + var.getName());
-				LOGGER.debug("Found Ternary Condition: " + condition);
+				LOGGER.debug("Found Ternary Assignment: %s", var.getName());
+				LOGGER.debug("Found Ternary Condition: %s", condition);
 				validRefactors.put(var.resolveBinding(), condition);
 			}
 		}
@@ -113,7 +113,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 
 	private boolean isApplicable(IfStatement ifStmt) {
 		Expression ifStmtCondition = ifStmt.getExpression();
-		System.out.println("[DEBUG] Analyzing if-statement: " + ifStmtCondition);
+		LOGGER.debug("Analyzing if-statement: %s", ifStmtCondition);
 		List<Expression> conditionFragments = Refactoring.getSubExpressions(ifStmtCondition);
 		for (Expression condition : conditionFragments) {
 			if (!(condition instanceof InfixExpression infix)) {
