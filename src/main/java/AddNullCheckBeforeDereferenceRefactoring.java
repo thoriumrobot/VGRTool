@@ -47,7 +47,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	private static final Logger LOGGER = LogManager.getLogger();
 
 	/**
-	 * List of depdendent variables and the independent variable they rely on * Uses
+	 * List of dependent variables and the independent variable they rely on * Uses
 	 * each variable's ({@link org.eclipse.jdt.core.dom.IVariableBinding}) as the
 	 * key, ensuring global uniqueness. Two variables who have the same name but
 	 * have different scopes will have different IBinding instances.
@@ -79,7 +79,10 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	}
 
 	private boolean isApplicable(VariableDeclarationFragment var) {
-		List<Expression> varInitializerFragments = getSubExpressions(var.getInitializer());
+		Expression initializer = var.getInitializer();
+		if (initializer == null)
+			return false;
+		List<Expression> varInitializerFragments = getSubExpressions(initializer);
 		AST ast = var.getAST();
 		for (Expression varInitFrag : varInitializerFragments) {
 
@@ -141,6 +144,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				return true;
 			}
 		}
+		LOGGER.debug("No valid refactors found for IfStatement %s", ifStmt);
 		return false;
 	}
 
@@ -159,11 +163,6 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			if (!(condition instanceof InfixExpression infix)) {
 				continue;
 			}
-
-			// Skip expressions with a prefix
-			// if (infix.getOperator() != InfixExpression.Operator.NOT_EQUALS) {
-			// continue;
-			// }
 
 			Expression leftOperand = infix.getLeftOperand();
 			Expression rightOperand = infix.getRightOperand();
