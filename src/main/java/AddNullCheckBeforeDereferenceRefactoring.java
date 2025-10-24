@@ -1,5 +1,4 @@
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 
@@ -91,9 +90,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				if (ternary.getThenExpression() instanceof NullLiteral) {
 					// depObj != null when condition is false
 					ParenthesizedExpression tempParen = ast.newParenthesizedExpression();
-					tempParen.setExpression(
-							(Expression) ASTNode.copySubtree(ast, ternary.getExpression()));
-					;
+					tempParen.setExpression((Expression) ASTNode.copySubtree(ast, ternary.getExpression()));;
 
 					PrefixExpression tempPrefix = ast.newPrefixExpression();
 					tempPrefix.setOperator(PrefixExpression.Operator.NOT);
@@ -133,8 +130,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			SimpleName varName;
 			if (rightOperand instanceof SimpleName rightVarName && leftOperand instanceof NullLiteral) {
 				varName = rightVarName;
-			} else if (leftOperand instanceof SimpleName leftVarName
-					&& rightOperand instanceof NullLiteral) {
+			} else if (leftOperand instanceof SimpleName leftVarName && rightOperand instanceof NullLiteral) {
 				varName = leftVarName;
 			} else {
 				continue;
@@ -170,8 +166,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			SimpleName varName;
 			if (rightOperand instanceof SimpleName rightVarName && leftOperand instanceof NullLiteral) {
 				varName = rightVarName;
-			} else if (leftOperand instanceof SimpleName leftVarName
-					&& rightOperand instanceof NullLiteral) {
+			} else if (leftOperand instanceof SimpleName leftVarName && rightOperand instanceof NullLiteral) {
 				varName = leftVarName;
 			} else {
 				continue;
