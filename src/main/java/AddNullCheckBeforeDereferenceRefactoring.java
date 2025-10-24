@@ -1,12 +1,13 @@
-import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.ConditionalExpression;
 import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.NullLiteral;
@@ -42,13 +43,15 @@ import org.apache.logging.log4j.Logger;
  */
 public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	public static final String NAME = "AddNullCheckBeforeDereferenceRefactoring";
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	/**
-	 * List of depdendent variables and the independent variable they rely on
+	 * List of depdendent variables and the independent variable they rely on * Uses
+	 * each variable's ({@link org.eclipse.jdt.core.dom.IVariableBinding}) as the
+	 * key, ensuring global uniqueness. Two variables who have the same name but
+	 * have different scopes will have different IBinding instances.
 	 */
-	private final Dictionary<String, Expression> validRefactors;
-
-	private static final Logger LOGGER = LogManager.getLogger();
+	private final Map<IBinding, Expression> validRefactors;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
@@ -99,7 +102,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				}
 				LOGGER.debug("Found Ternary Assignment: " + var.getName());
 				LOGGER.debug("Found Ternary Condition: " + condition);
-				validRefactors.put(var.getName().toString(), condition);
+				validRefactors.put(var.resolveBinding(), condition);
 			}
 		}
 		return false;
@@ -129,7 +132,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			} else {
 				continue;
 			}
-			if (validRefactors.get(varName.toString()) != null) {
+			if (validRefactors.get(varName.resolveBinding()) != null) {
 				LOGGER.debug("Found indirect null check in if-statement: " + condition);
 				return true;
 			}
@@ -170,7 +173,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 				continue;
 			}
 
-			Expression ternary = validRefactors.get(varName.toString());
+			Expression ternary = validRefactors.get(varName.resolveBinding());
 
 			// ✅ Now, safely cast to ConditionalExpression
 			AST ast = node.getAST();
@@ -194,8 +197,8 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
 		}
-		if (validRefactors.get(varName.toString()) != null) {
-			validRefactors.remove(varName.toString());
+		if (validRefactors.get(varName.resolveBinding()) != null) {
+			validRefactors.remove(varName.resolveBinding());
 		}
 	}
 }
