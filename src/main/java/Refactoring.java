@@ -35,6 +35,7 @@ public abstract class Refactoring {
 	 * Recursively analyzes an expression and returns the boolean comparison
 	 * subexpressions that comprise it.
 	 * 
+	 * 
 	 * @param expr
 	 *            The expression to analyze
 	 * @return A list of all subexpressions within an expreesion
