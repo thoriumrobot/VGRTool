@@ -29,12 +29,12 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * List of variable names identified as boolean flags, along with their
 	 * corresponding initializer expression
 	 */
-	private final Map<String, Expression> booleanFlags;
+	private final Map<String, Expression> flagExpressions;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public BooleanFlagRefactoring() {
 		super();
-		this.booleanFlags = new HashMap<>();
+		this.flagExpressions = new HashMap<>();
 	}
 
 	@Override
@@ -85,7 +85,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 						ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
 						Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
 						pExpr.setExpression(copiedExpression);
-						booleanFlags.put(varName.toString(), pExpr);
+						flagExpressions.put(varName.toString(), pExpr);
 						flagFound = true;
 					}
 				}
@@ -118,7 +118,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	private boolean isFlag(SimpleName potentialFlag) {
-		return booleanFlags.get(potentialFlag.toString()) != null;
+		return flagExpressions.get(potentialFlag.toString()) != null;
 	}
 
 	private boolean isEqualityOperator(Operator op) {
@@ -136,15 +136,15 @@ public class BooleanFlagRefactoring extends Refactoring {
 				Expression leftOperand = infix.getLeftOperand();
 				Expression rightOperand = infix.getRightOperand();
 				if ((leftOperand instanceof SimpleName var)) {
-					Expression newExpr = booleanFlags.get(var.toString());
+					Expression newExpr = flagExpressions.get(var.toString());
 					rewriter.replace(leftOperand, newExpr, null);
 				} else if (rightOperand instanceof SimpleName var) {
-					Expression newExpr = booleanFlags.get(var.toString());
+					Expression newExpr = flagExpressions.get(var.toString());
 					rewriter.replace(rightOperand, newExpr, null);
 				}
 			}
 			if (expression instanceof SimpleName sn) {
-				Expression newExpr = booleanFlags.get(sn.toString());
+				Expression newExpr = flagExpressions.get(sn.toString());
 				rewriter.replace(sn, newExpr, null);
 			}
 		}
@@ -152,7 +152,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 
 	/*
 	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
-	 * if so removes the flag from booleanFlags
+	 * if so removes the flag from flagExpressions
 	 */
 	private void checkReassignment(Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
@@ -160,7 +160,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 			return;
 		}
 		if (isFlag(varName)) {
-			booleanFlags.remove(varName.toString());
+			flagExpressions.remove(varName.toString());
 		}
 	}
 }
