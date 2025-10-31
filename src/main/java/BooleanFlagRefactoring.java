@@ -75,15 +75,12 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix
-						&& isEqualityOperator(infix.getOperator())
+				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())
 						&& getNullComparisonVariable(infix) != null) {
 					ParenthesizedExpression copiedExpression = ast.newParenthesizedExpression();
-					copiedExpression.setExpression(
-							(Expression) ASTNode.copySubtree(ast, varInitializer));
+					copiedExpression.setExpression((Expression) ASTNode.copySubtree(ast, varInitializer));
 					flagExpressions.put(frag.getName().getIdentifier(), copiedExpression);
 					flagFound = true;
-					break;
 				}
 			}
 		}
