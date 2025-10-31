@@ -73,15 +73,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix
-						&& isEqualityOperator(infix.getOperator())
+				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())
 						&& getNullComparisonVariable(infix) != null) {
 					AST ast = stmt.getAST();
 					ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast,
-							varInitializer);
+					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
 					pExpr.setExpression(copiedExpression);
-					flagExpressions.put(varName.toString(), pExpr);
+					flagExpressions.put(varName.getIdentifier(), pExpr);
 					flagFound = true;
 				}
 			}
@@ -113,7 +111,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	private boolean isFlag(SimpleName potentialFlag) {
-		return flagExpressions.get(potentialFlag.toString()) != null;
+		return flagExpressions.get(potentialFlag.getIdentifier()) != null;
 	}
 
 	private boolean isEqualityOperator(Operator op) {
@@ -141,13 +139,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 		for (Expression expression : exprFragments) {
 			if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
 				SimpleName varName = getNullComparisonVariable(infix);
-				Expression newExpr = flagExpressions.get(varName.toString());
+				Expression newExpr = flagExpressions.get(varName.getIdentifier());
 				if (newExpr != null) {
 					rewriter.replace(varName, newExpr, null);
 				}
 			}
 			if (expression instanceof SimpleName sn) {
-				Expression newExpr = flagExpressions.get(sn.toString());
+				Expression newExpr = flagExpressions.get(sn.getIdentifier());
 				if (newExpr != null) {
 					rewriter.replace(sn, newExpr, null);
 				}
@@ -165,7 +163,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 			return;
 		}
 		if (isFlag(varName)) {
-			flagExpressions.remove(varName.toString());
+			flagExpressions.remove(varName.getIdentifier());
 		}
 	}
 }
