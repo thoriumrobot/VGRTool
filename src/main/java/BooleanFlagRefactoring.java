@@ -73,7 +73,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if ((expression instanceof InfixExpression infix) && (isEqualityOperator(infix.getOperator()))) {
+				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
 
 					Expression leftOperand = infix.getLeftOperand();
 					Expression rightOperand = infix.getRightOperand();
