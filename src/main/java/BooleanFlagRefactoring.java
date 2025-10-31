@@ -139,20 +139,23 @@ public class BooleanFlagRefactoring extends Refactoring {
 		for (Expression expression : exprFragments) {
 			if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
 				SimpleName flagName = getNullComparisonVariable(infix);
-				if (flagName != null && isFlag(flagName)) {
-					Expression newExpr = flagExpressions.get(flagName.getIdentifier());
-					if (newExpr != null) {
-						rewriter.replace(flagName, newExpr, null);
-					}
-				}
+				apply(rewriter, flagName);
 			}
-			if (expression instanceof SimpleName sn) {
-				Expression newExpr = flagExpressions.get(sn.getIdentifier());
-				if (newExpr != null) {
-					rewriter.replace(sn, newExpr, null);
-				}
+			if (expression instanceof SimpleName flagName) {
+				apply(rewriter, flagName);
 			}
 		}
+	}
+
+	private void apply(ASTRewrite rewriter, SimpleName flagName) {
+		if (flagName == null || !isFlag(flagName)) {
+			return;
+		}
+		Expression newExpr = flagExpressions.get(flagName.getIdentifier());
+		if (newExpr != null) {
+			rewriter.replace(flagName, newExpr, null);
+		}
+
 	}
 
 	/*
