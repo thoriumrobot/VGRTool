@@ -1,6 +1,7 @@
-import java.util.Dictionary;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
@@ -28,12 +29,12 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * List of variable names identified as boolean flags, along with their
 	 * corresponding initializer expression
 	 */
-	private final Dictionary<String, Expression> booleanFlags;
+	private final Map<String, Expression> booleanFlags;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public BooleanFlagRefactoring() {
 		super();
-		this.booleanFlags = new Hashtable<>();
+		this.booleanFlags = new HashMap<>();
 	}
 
 	@Override
