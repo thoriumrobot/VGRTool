@@ -350,4 +350,23 @@ public class BooleanFlagTesting {
 				""";
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void shadowingTest() {
+		String input = """
+				public class Test {
+				        boolean xIsNull;
+
+				        public void test(String x) {
+				                xIsNull = x == null;
+				                boolean xIsNull = true;
+				                if (xIsNull) {
+				                        ;
+				                }
+				        }
+				}
+				""";
+		String expectedOutput = input;
+		test(input, expectedOutput);
+	}
 }
