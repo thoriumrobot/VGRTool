@@ -7,6 +7,7 @@ import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
 import org.eclipse.jdt.core.dom.ConditionalExpression;
 import org.eclipse.jdt.core.dom.Expression;
+import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.core.dom.IfStatement;
 import org.eclipse.jdt.core.dom.InfixExpression;
 import org.eclipse.jdt.core.dom.NullLiteral;
@@ -29,7 +30,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * List of variable names identified as boolean flags, along with their
 	 * corresponding initializer expression
 	 */
-	private final Map<String, Expression> flagExpressions;
+	private final Map<IBinding, Expression> flagExpressions;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public BooleanFlagRefactoring() {
@@ -79,7 +80,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 						&& getNullComparisonVariable(infix) != null) {
 					ParenthesizedExpression copiedExpression = ast.newParenthesizedExpression();
 					copiedExpression.setExpression((Expression) ASTNode.copySubtree(ast, varInitializer));
-					flagExpressions.put(frag.getName().getIdentifier(), copiedExpression);
+					flagExpressions.put(frag.getName().resolveBinding(), copiedExpression);
 					flagFound = true;
 				}
 			}
@@ -111,7 +112,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	private boolean isFlag(SimpleName potentialFlag) {
-		return flagExpressions.get(potentialFlag.getIdentifier()) != null;
+		return flagExpressions.get(potentialFlag.resolveBinding()) != null;
 	}
 
 	private boolean isEqualityOperator(Operator op) {
@@ -151,7 +152,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 		if (flagName == null || !isFlag(flagName)) {
 			return;
 		}
-		Expression newExpr = flagExpressions.get(flagName.getIdentifier());
+		Expression newExpr = flagExpressions.get(flagName.resolveBinding());
 		if (newExpr != null) {
 			rewriter.replace(flagName, newExpr, null);
 		}
@@ -168,7 +169,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 			return;
 		}
 		if (isFlag(varName)) {
-			flagExpressions.remove(varName.getIdentifier());
+			flagExpressions.remove(varName.resolveBinding());
 		}
 	}
 }
