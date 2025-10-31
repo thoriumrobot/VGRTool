@@ -300,4 +300,29 @@ public class BooleanFlagTesting {
 				""";
 		test(input, expectedOutput);
 	}
+
+	@Test
+	public void multipleFlagsTest() {
+		String input = """
+				public class Test {
+				  public void test(String a, String b) {
+				    boolean aIsNull = a == null, bIsNull = b == null;
+				    if (aIsNull || bIsNull) {
+				      ;
+				    }
+				  }
+				}
+				""";
+		String expectedOutput = """
+				public class Test {
+				  public void test(String a, String b) {
+				    boolean aIsNull = a == null, bIsNull = b == null;
+				    if ((a == null) || (b == null)) {
+				      ;
+				    }
+				  }
+				}
+				""";
+		test(input, expectedOutput);
+	}
 }
