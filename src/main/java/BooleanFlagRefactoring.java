@@ -73,11 +73,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())
+				if (expression instanceof InfixExpression infix
+						&& isEqualityOperator(infix.getOperator())
 						&& getNullComparisonVariable(infix) != null) {
 					AST ast = stmt.getAST();
 					ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
+					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast,
+							varInitializer);
 					pExpr.setExpression(copiedExpression);
 					flagExpressions.put(varName.toString(), pExpr);
 					flagFound = true;
@@ -140,11 +142,15 @@ public class BooleanFlagRefactoring extends Refactoring {
 			if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
 				SimpleName varName = getNullComparisonVariable(infix);
 				Expression newExpr = flagExpressions.get(varName.toString());
-				rewriter.replace(varName, newExpr, null);
+				if (newExpr != null) {
+					rewriter.replace(varName, newExpr, null);
+				}
 			}
 			if (expression instanceof SimpleName sn) {
 				Expression newExpr = flagExpressions.get(sn.toString());
-				rewriter.replace(sn, newExpr, null);
+				if (newExpr != null) {
+					rewriter.replace(sn, newExpr, null);
+				}
 			}
 		}
 	}
