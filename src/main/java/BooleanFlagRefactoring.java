@@ -73,21 +73,14 @@ public class BooleanFlagRefactoring extends Refactoring {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
-
-					Expression leftOperand = infix.getLeftOperand();
-					Expression rightOperand = infix.getRightOperand();
-
-					if ((leftOperand instanceof SimpleName && rightOperand instanceof NullLiteral)
-							|| (rightOperand instanceof SimpleName && leftOperand instanceof NullLiteral)) {
-
-						AST ast = stmt.getAST();
-						ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-						Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
-						pExpr.setExpression(copiedExpression);
-						flagExpressions.put(varName.toString(), pExpr);
-						flagFound = true;
-					}
+				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())
+						&& getNullComparisonVariable(infix) != null) {
+					AST ast = stmt.getAST();
+					ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
+					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
+					pExpr.setExpression(copiedExpression);
+					flagExpressions.put(varName.toString(), pExpr);
+					flagFound = true;
 				}
 			}
 		}
@@ -125,6 +118,18 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return (op == Operator.NOT_EQUALS || op == Operator.EQUALS);
 	}
 
+	private SimpleName getNullComparisonVariable(InfixExpression infix) {
+		Expression leftOperand = infix.getLeftOperand();
+		Expression rightOperand = infix.getRightOperand();
+		if (leftOperand instanceof SimpleName varName && rightOperand instanceof NullLiteral) {
+			return varName;
+		} else if (rightOperand instanceof SimpleName varName && leftOperand instanceof NullLiteral) {
+			return varName;
+		}
+		return null;
+
+	}
+
 	@Override
 	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (!(node instanceof IfStatement ifStmt)) {
@@ -133,15 +138,9 @@ public class BooleanFlagRefactoring extends Refactoring {
 		List<Expression> exprFragments = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expression : exprFragments) {
 			if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
-				Expression leftOperand = infix.getLeftOperand();
-				Expression rightOperand = infix.getRightOperand();
-				if ((leftOperand instanceof SimpleName var)) {
-					Expression newExpr = flagExpressions.get(var.toString());
-					rewriter.replace(leftOperand, newExpr, null);
-				} else if (rightOperand instanceof SimpleName var) {
-					Expression newExpr = flagExpressions.get(var.toString());
-					rewriter.replace(rightOperand, newExpr, null);
-				}
+				SimpleName varName = getNullComparisonVariable(infix);
+				Expression newExpr = flagExpressions.get(varName.toString());
+				rewriter.replace(varName, newExpr, null);
 			}
 			if (expression instanceof SimpleName sn) {
 				Expression newExpr = flagExpressions.get(sn.toString());
