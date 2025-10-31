@@ -62,25 +62,28 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 
 		boolean flagFound = false;
+		AST ast = stmt.getAST();
 
 		// Search through all declared variables in declaration node for a booleanflag
-		List<VariableDeclarationFragment> fragments = stmt.fragments();
-		for (VariableDeclarationFragment frag : fragments) {
-			SimpleName varName = frag.getName();
+		for (VariableDeclarationFragment frag : (List<VariableDeclarationFragment>) stmt.fragments()) {
 			Expression varInitializer = frag.getInitializer();
-			List<Expression> initExpr = Refactoring.getSubExpressions(varInitializer);
-			for (Expression expression : initExpr) {
+			if (varInitializer == null) {
+				continue;
+			}
+
+			for (Expression expression : Refactoring.getSubExpressions(varInitializer)) {
 				if (expression instanceof ConditionalExpression cExpr) {
 					expression = cExpr.getExpression();
 				}
-				if (expression instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())
+				if (expression instanceof InfixExpression infix
+						&& isEqualityOperator(infix.getOperator())
 						&& getNullComparisonVariable(infix) != null) {
-					AST ast = stmt.getAST();
-					ParenthesizedExpression pExpr = ast.newParenthesizedExpression();
-					Expression copiedExpression = (Expression) ASTNode.copySubtree(ast, varInitializer);
-					pExpr.setExpression(copiedExpression);
-					flagExpressions.put(varName.getIdentifier(), pExpr);
+					ParenthesizedExpression copiedExpression = ast.newParenthesizedExpression();
+					copiedExpression.setExpression(
+							(Expression) ASTNode.copySubtree(ast, varInitializer));
+					flagExpressions.put(frag.getName().getIdentifier(), copiedExpression);
 					flagFound = true;
+					break;
 				}
 			}
 		}
