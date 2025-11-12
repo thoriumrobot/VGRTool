@@ -5,7 +5,8 @@
 build
 bin
 
-# Ignore auto-generated benchmarking files
+# Ignore auto-generated benchmarking files and dependencies
+benchmarking/jars/
 benchmarking/datasets/
 benchmarking/results/
 benchmarking/sources/
