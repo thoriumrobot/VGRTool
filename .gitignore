@@ -5,6 +5,12 @@
 build
 bin
 
+# Ignore auto-generated benchmarking files
+benchmarking/datasets/
+benchmarking/results/
+benchmarking/sources/
+benchmarking/compiled_classes/
+
 # Ignore IDE specific files
 .vscode
 .classpath
@@ -15,4 +21,3 @@ bin
 # Ignore Shell Extensions
 .direnv/
 .envrc
-
