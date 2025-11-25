@@ -184,6 +184,10 @@ def stage_one():
 
 
 def stage_one_annotate(dataset: str):
+    """
+    Runs NullAwayAnnotator on the passed dataset in order to prepare it for
+    refactoring
+    """
     os.makedirs(ANNOTATOR_OUT_DIR, exist_ok=True)
     with open(f"{ANNOTATOR_CONFIG}", "w") as config_file:
         _ = config_file.write(f"{NULLAWAY_CONFIG}/\t{SCANNER_CONFIG}\n")
@@ -235,6 +239,9 @@ def stage_one_annotate(dataset: str):
 
 
 def stage_one_refactor(dataset: str):
+    """
+    Runs VGR on the passed dataset
+    """
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
     res = os.system(
         f"./gradlew run --args='{DATASETS_REFACTORED_DIR}/{dataset} All' &> {output_file}"
