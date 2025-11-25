@@ -24,16 +24,37 @@ JARS_DIR = f"{BENCHMARKING_DIR}/jars"
 ERRORPRONE_JAR_DIR = f"{JARS_DIR}/errorprone"
 NULLAWAY_JAR_DIR = f"{JARS_DIR}/nullaway"
 ANNOTATOR_JAR_DIR = f"{JARS_DIR}/annotator"
-PROCESSOR_JAR_PATHS = [
-    f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.38.0-with-dependencies.jar",
-    f"{ERRORPRONE_JAR_DIR}/errorprone/dataflow-errorprone-3.49.3-eisop1.jar",
-    f"{ERRORPRONE_JAR_DIR}/errorprone/jFormatString-3.0.0.jar",
-    f"{NULLAWAY_JAR_DIR}/nullaway-0.12.7.jar",
-    f"{NULLAWAY_JAR_DIR}/dataflow-nullaway-3.49.5.jar",
-    f"{NULLAWAY_JAR_DIR}/checker-qual-3.49.2.jar",
-    f"{ANNOTATOR_JAR_DIR}/annotator-core-1.3.15.jar",
+PROCESSOR_JARS = [
+    {
+        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.38.0-with-dependencies.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.38.0/error_prone_core-2.38.0.jar",
+    },
+    {
+        "PATH": f"{ERRORPRONE_JAR_DIR}/dataflow-errorprone-3.49.3-eisop1.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.49.3-eisop1/dataflow-errorprone-3.49.3-eisop1.jar",
+    },
+    {
+        "PATH": f"{ERRORPRONE_JAR_DIR}/jFormatString-3.0.0.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/code/findbugs/jFormatString/3.0.0/jFormatString-3.0.0.jar",
+    },
+    {
+        "PATH": f"{NULLAWAY_JAR_DIR}/nullaway-0.12.7.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.12.7/nullaway-0.12.7.jar",
+    },
+    {
+        "PATH": f"{NULLAWAY_JAR_DIR}/dataflow-nullaway-3.49.5.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/3.49.5/dataflow-nullaway-3.49.5.jar",
+    },
+    {
+        "PATH": f"{NULLAWAY_JAR_DIR}/checker-qual-3.49.2.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.49.2/checker-qual-3.49.2.jar",
+    },
+    {
+        "PATH": f"{ANNOTATOR_JAR_DIR}/annotator-core-1.3.15.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/edu/ucr/cs/riple/annotator/annotator-core/1.3.15/annotator-core-1.3.15.jar",
+    },
 ]
-PROCESSOR_JARS = ":".join(PROCESSOR_JAR_PATHS)
+PROCESSOR_JAR_PATHS = ":".join(map(lambda jar: jar["PATH"], PROCESSOR_JARS))
 
 # NullAwayAnnotator Configuration
 ANNOTATOR_OUT_DIR = f"{OUTPUT_DIR}/annotator"
@@ -71,7 +92,9 @@ def stage_zero():
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(DATASETS_CACHE_DIR, exist_ok=True)
     os.makedirs(COMPILED_CLASSES_DIR, exist_ok=True)
-
+    os.makedirs(ERRORPRONE_JAR_DIR, exist_ok=True)
+    os.makedirs(NULLAWAY_JAR_DIR, exist_ok=True)
+    os.makedirs(ANNOTATOR_JAR_DIR, exist_ok=True)
     # Download datasets if they don't already exist
     if len(os.listdir(DATASETS_CACHE_DIR)) == 0:
         print("Downloading NJR-1 Dataset...")
@@ -102,12 +125,19 @@ def stage_zero():
         sys.exit(1)
 
     print("Verifying necessary jar files...")
-    for jar_path in PROCESSOR_JAR_PATHS:
-        if not os.path.exists(jar_path):
+    for jar in PROCESSOR_JARS:
+        if not os.path.exists(jar["PATH"]):
             print(
-                f"Fatal Error: Missing necessary jar file at {jar_path}. Exiting Program"
+                f"Warning: Missing necessary jar file at {jar["PATH"]}. Downloading jar..."
             )
-        sys.exit(1)
+            res = os.system(f"wget {jar["DOWNLOAD_URL"]} -O {jar["PATH"]}")
+
+            if res != 0:
+                print(
+                    f"Downloading necessary jar failed with exit code {res}. Exiting Program"
+                )
+                sys.exit(1)
+            print(f"Succesfully downloaded and saved jar file at {jar["PATH"]}.")
 
     print("Benchmarking Stage Zero Completed\n")
 
