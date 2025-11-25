@@ -190,6 +190,13 @@ def stage_one():
             }
         )
     print(f"Finished benchmarking {dataset}")
+    print("Results:")
+    for res in results:
+        print(
+            f"Dataset: {res['benchmark']}\nInitial Errors: {res['initial_error_count']}\nRefactored Errors: {res['refactored_error_count']}"
+        )
+
+    stage_one_save_results_to_csv()
     return
 
 
@@ -394,6 +401,21 @@ def get_plugin_options(dataset: str):
              {annotated_pkgs_arg}"
 
 
+def stage_one_save_results_to_csv():
+    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{datetime.now():%Y-%m-%d_%H:%M:%S}"
+
+    print(f"Saving existing refactored datasets to {save_dir}")
+    if os.path.exists(DATASETS_REFACTORED_DIR):
+        try:
+            os.makedirs(DATASETS_REFACTORED_SAVE_DIR, exist_ok=True)
+            shutil.move(DATASETS_REFACTORED_DIR, save_dir)
+        except Exception as e:
+            print(
+                f"Fatal Error: Could not save existing refactored datasets. Move operation failed with error code: {e}. Exiting program."
+            )
+            sys.exit(1)
+
+
 def run():
     """
     Runs the full benchmarking routine for every dataset in the NJR-1 dataset collection and then summarizes the results.
@@ -402,12 +424,19 @@ def run():
     stage_one()
 
 
-argparser = argparse.ArgumentParser(description="Runs benchmark.")
-argparser.add_argument(
-    "--debug", action="store_true", help=f"Enabling debugging statements."
-)
-args = argparser.parse_args()
+def main():
+    """Main entry point of the script."""
+    global DEBUG
+    argparser = argparse.ArgumentParser(description="Runs benchmark.")
+    argparser.add_argument(
+        "--debug", action="store_true", help="Enabling debugging statements."
+    )
+    args = argparser.parse_args()
+    DEBUG = args.debug
 
-DEBUG = args.debug
+    stage_zero()
+    stage_one()
 
-run()
+
+if __name__ == "__main__":
+    main()
