@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+from turtle import pd
 
 BENCHMARKING_DIR = "./benchmarking"  # Base directory for benchmarking inputs / outputs
 DATASETS_DIR = (
@@ -272,6 +273,42 @@ def stage_one_count_errors(dataset: str, new_run=False):
     return error_count
 
 
+def stage_two():
+    print("Summarizing results...:")
+
+    benchmark_results = pd.DataFrame(results)
+
+    benchmark_results["error_reduction"] = (
+        benchmark_results["initial_error_count"]
+        - benchmark_results["refactored_error_count"]
+    )
+    avg_diff = benchmark_results["error_reduction"].mean()
+
+    benchmark_results["error_reduction_percent"] = benchmark_results.apply(
+        lambda row: (
+            (row["error_reduction"] / row["initial_error_count"]) * 100
+            if row["initial_error_count"] != 0
+            else 0
+        ),
+        axis=1,
+    )
+
+    benchmark_results["error_reduction_percent"] = (
+        benchmark_results["error_reduction_percent"]
+        .astype("Float64")
+        .replace([float("inf"), -float("inf")], pd.NA)
+    )
+    avg_percent_reduction = benchmark_results["error_reduction_percent"].dropna().mean()
+
+    print("SUMMARY OF RESULTS:")
+    print(f"AVERAGE ERROR REDUCTION: {avg_diff}")
+    print(f"AVERAGE ERROR REDUCTION (PERCENT): {avg_percent_reduction}")
+    print(
+        f"BENCHMARKS WITH LARGEST PERCENT REDUCTION): \n{benchmark_results.sort_values(by='error_reduction_percent', ascending=False).head(10)}"
+    )
+    benchmark_results.to_csv(f"{OUTPUT_DIR}/summary.csv")
+
+
 def get_build_cmd(dataset: str):
     lib_dir = f"{DATASETS_REFACTORED_DIR}/{dataset}/lib"
     src_file = get_source_files(dataset)
@@ -342,6 +379,7 @@ def run():
     """
     stage_zero()
     stage_one()
+    stage_two()
 
 
 argparser = argparse.ArgumentParser(description="Runs benchmark.")
