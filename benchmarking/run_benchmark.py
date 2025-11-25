@@ -434,8 +434,7 @@ def main():
     args = argparser.parse_args()
     DEBUG = args.debug
 
-    stage_zero()
-    stage_one()
+    run()
 
 
 if __name__ == "__main__":
