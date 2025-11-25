@@ -1,8 +1,8 @@
 # pyright: basic
+from datetime import datetime
 import os
 import shutil
 import sys
-
 
 BENCHMARKING_DIR = "./benchmarking"  # Base directory for benchmarking inputs / outputs
 DATASETS_DIR = (
@@ -12,6 +12,7 @@ DATASETS_CACHE_DIR = f"{DATASETS_DIR}/cache"  # Cache directory for NJR-1 datase
 DATASETS_REFACTORED_DIR = (
     f"{DATASETS_DIR}/refactored"  # Directory for datasets that will be modified
 )
+DATASETS_REFACTORED_SAVE_DIR = f"{DATASETS_DIR}/old-runs/refactored"  # Directory for datasets that will be modified
 
 OUTPUT_DIR = f"{BENCHMARKING_DIR}/results"  # Directory for storing outputs
 SRC_DIR = f"{BENCHMARKING_DIR}/sources"  # Directory for storing text files listing source files for each project
@@ -79,12 +80,20 @@ ERROR_PRONE_EXPORTS = [
 
 
 # The initialization stage for benchmarking
-# Creates the necessary directories, removes old refactored datasets, confirms the existence of the necessary jar files, and downloads NJR-1 dataset if it has not been already.
+# Creates the necessary directories, saves old refactored datasets, confirms the existence of the necessary jar files, and downloads NJR-1 dataset if it has not been already.
 def stage_zero():
     print("Beginning Stage Zero: Initialization...")
 
-    print("Removing old refactored datasets...")
-    shutil.rmtree(DATASETS_REFACTORED_DIR, ignore_errors=True)
+    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{datetime.now():%Y-%m-%d_%H:%M:%S}"
+    print(f"Saving existing refactored datasets to {save_dir}")
+    if os.path.exists(DATASETS_REFACTORED_DIR):
+        try:
+            shutil.move(DATASETS_REFACTORED_DIR, save_dir)
+        except:
+            print(
+                f"Fatal Error: Could not save existing refactored datasets to {save_dir}. Move operation failed. Exiting program."
+            )
+        sys.exit(1)
 
     print("Initializing benchmarking folders and datasets")
     os.makedirs(SRC_DIR, exist_ok=True)
