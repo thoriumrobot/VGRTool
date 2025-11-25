@@ -82,6 +82,7 @@ ERROR_PRONE_EXPORTS = [
 ]
 
 results = []
+DEBUG = False
 
 
 # The initialization stage for benchmarking
@@ -165,13 +166,22 @@ def stage_one():
     for dataset in datasets_list:
         print(f"Benchmarking {dataset}...")
         os.makedirs(f"{OUTPUT_DIR}/{dataset}", exist_ok=True)
-        print(f"Annotating {dataset}...")
+
+        ## Step 1: Annotate dataset
         stage_one_annotate(dataset)
-        old_err_count = stage_one_count_errors(dataset, True)
-        print(f"Refactoring {dataset}...")
+
+        ## Step 2: Count initials errors
+        old_err_count = stage_one_count_errors(dataset)
+
+        ## Step 3: Refactor dataset
         stage_one_refactor(dataset)
+
+        ## Step 4: Count errors after refactoring
         new_err_count = stage_one_count_errors(dataset)
-        print(f"Finished benchmarking {dataset}\n")
+
+        print(
+            f"Finished benchmarking {dataset}. Errors: {old_err_count} --> {new_err_count}\n"
+        )
         results.append(
             {
                 "benchmark": dataset,
@@ -179,8 +189,11 @@ def stage_one():
                 "refactored_error_count": new_err_count,
             }
         )
-    print("Finished running benchmarks")
+    print(f"Finished benchmarking {dataset}")
     return
+
+
+# Utility Functions
 
 
 def stage_one_annotate(dataset: str):
@@ -188,6 +201,10 @@ def stage_one_annotate(dataset: str):
     Runs NullAwayAnnotator on the passed dataset in order to prepare it for
     refactoring
     """
+
+    print(f"Annotating {dataset}...")
+
+    # Create config files
     os.makedirs(ANNOTATOR_OUT_DIR, exist_ok=True)
     with open(f"{ANNOTATOR_CONFIG}", "w") as config_file:
         _ = config_file.write(f"{NULLAWAY_CONFIG}/\t{SCANNER_CONFIG}\n")
@@ -201,16 +218,16 @@ def stage_one_annotate(dataset: str):
     annotate_cmd: list[str] = [
         "java",
         "-jar",
-        f"{ANNOTATOR_JAR}",
+        ANNOTATOR_JAR,
         # Absolute path of an Empty Directory where all outputs of AnnotatorScanner and NullAway are serialized.
         "-d",
-        f"{ANNOTATOR_OUT_DIR}",
+        ANNOTATOR_OUT_DIR,
         # Command to run Nullaway on target; Should be executable from anywhere
         "-bc",
         f'"cd {cwd} && {build_cmd}"',
         # Path to a TSV file containing value of config paths
         "-cp",
-        f"{ANNOTATOR_CONFIG}",
+        ANNOTATOR_CONFIG,
         # Fully qualified name of the @Initializer annotation.
         "-i",
         "com.uber.nullaway.annotations.Initializer",
@@ -220,7 +237,7 @@ def stage_one_annotate(dataset: str):
         # Checker name to be used for the analysis.
         "-cn",
         "NULLAWAY",
-        # Max depth to traverse
+        # Max depth to traverse as part of the analysis search
         "--depth",
         "10",
     ]
@@ -229,12 +246,19 @@ def stage_one_annotate(dataset: str):
         print(
             f"Annotation failed with exit code {res.returncode} for dataset {dataset}"
         )
-    if DEBUG:
-        print(f"Annotate Command for dataset {dataset}: \n\t{" ".join(annotate_cmd)}\n")
-    with open(f"{OUTPUT_DIR}/{dataset}/annotator.txt", "w") as f:
+        return
+
+    output_log_path = f"{OUTPUT_DIR}/{dataset}/annotator.txt"
+    with open(output_log_path, "w") as f:
         f.write(f"CMD:\n\t{" ".join(annotate_cmd)}\n")
         f.write(f"STDOUT:\n\t{res.stdout}\n")
         f.write(f"STDERR:\n\t{res.stderr}\n")
+
+    if DEBUG:
+        print(
+            f"Command used to annotate dataset {dataset}: \n\t{" ".join(annotate_cmd)}\n"
+        )
+
     return
 
 
@@ -242,32 +266,53 @@ def stage_one_refactor(dataset: str):
     """
     Runs VGR on the passed dataset
     """
+
+    print(f"Refactoring {dataset}...")
+
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
-    res = os.system(
-        f"./gradlew run --args='{DATASETS_REFACTORED_DIR}/{dataset} All' &> {output_file}"
-    )
+    dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
+
+    refactor_cmd: list[str] = ["./gradlew", "run", f"--args={dataset_path} All"]
+
+    with open(output_file, "w") as f:
+        res = subprocess.run(
+            " ".join(refactor_cmd) + f" &> {output_file}", shell=True, check=False
+        )
 
     if res != 0:
-        print(f"Running VGRTool failed with exit code {res} for dataset {dataset}")
+        print(
+            f"Running VGRTool failed with exit code {res} for dataset {dataset}. See {output_file} for more details."
+        )
 
     if DEBUG:
         print(
-            f"Build Command for dataset {dataset}: ./gradlew run --args='{DATASETS_REFACTORED_DIR}/{dataset} All' &> /dev/null"
+            f"Refactor Command for dataset {dataset}: : {' '.join(refactor_cmd)} &> {output_file}"
         )
     return
 
 
-def stage_one_count_errors(dataset: str, new_run=False):
+def stage_one_count_errors(dataset: str):
+    """Builds the passed datsets and counts NullAway errors during the build process."""
     build_cmd = " ".join(get_build_cmd(dataset))
-    log_file = f"{OUTPUT_DIR}/{dataset}/error_count_log.txt"
-    output_file = f"{OUTPUT_DIR}/{dataset}/error_count.txt"
-    _ = os.system(f"{build_cmd} &> {log_file}")
+    log_file = (
+        f"{OUTPUT_DIR}/{dataset}/error_count_log-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
+    )
+    output_file = (
+        f"{OUTPUT_DIR}/{dataset}/error_count-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
+    )
 
-    if new_run:
-        shutil.rmtree(log_file, ignore_errors=True)
-        shutil.rmtree(output_file, ignore_errors=True)
+    # Build the dataset and redirect all outputs to a log file
+    with open(log_file, "w") as f:
+        res = subprocess.run(
+            build_cmd, stdout=f, stderr=subprocess.STDOUT, check=False, text=True
+        )
+        if res != 0:
+            print(
+                f"Building dataset {dataset} failed with exit code {res}. Skipping dataset..."
+            )
+            return
 
-    # Read the file and count occurrences of NullAway errors
+    # Read the log file and count occurrences of NullAway errors
     with open(log_file, "r") as f:
         error_count = len(re.findall(r"error: \[NullAway\]", f.read()))
 
@@ -275,11 +320,14 @@ def stage_one_count_errors(dataset: str, new_run=False):
         f.write(f"Error Count: {error_count}\n")
 
     if DEBUG:
-        print(f"Errors found for dataset {dataset}: {error_count}")
+        print(f"Number of errors found for dataset {dataset}: {error_count}")
     return error_count
 
 
 def get_build_cmd(dataset: str):
+    """
+    Constructs the full 'javac' build command used to compile the passed dataset.
+    """
     lib_dir = f"{DATASETS_REFACTORED_DIR}/{dataset}/lib"
     src_file = get_source_files(dataset)
     plugin_options = get_plugin_options(dataset)
@@ -319,6 +367,9 @@ def get_source_files(dataset):
 
 
 def get_plugin_options(dataset: str):
+    """
+    Generates the -Xplugin:ErrorProne option string, including a dynamically generated list of packages to annotate.
+    """
     dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
     find_pkgs_command = (
         f"find {dataset_path}"
