@@ -1,7 +1,10 @@
 # pyright: basic
+import argparse
 from datetime import datetime
 import os
+import re
 import shutil
+import subprocess
 import sys
 
 BENCHMARKING_DIR = "./benchmarking"  # Base directory for benchmarking inputs / outputs
@@ -78,6 +81,8 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
 
+results = []
+
 
 # The initialization stage for benchmarking
 # Creates the necessary directories, saves old refactored datasets, confirms the existence of the necessary jar files, and downloads NJR-1 dataset if it has not been already.
@@ -151,11 +156,200 @@ def stage_zero():
     print("Benchmarking Stage Zero Completed\n")
 
 
+def stage_one():
+    """
+    Runs the full benchmarking routine (Annotate -> Count Errors -> Refactor -> Annotate -> Count Errors) for every dataset in the NJR-1 dataset collection and then summarizes the results.
+    """
+    datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
+
+    for dataset in datasets_list:
+        print(f"Benchmarking {dataset}...")
+        os.makedirs(f"{OUTPUT_DIR}/{dataset}", exist_ok=True)
+        print(f"Annotating {dataset}...")
+        stage_one_annotate(dataset)
+        old_err_count = stage_one_count_errors(dataset, True)
+        print(f"Refactoring {dataset}...")
+        stage_one_refactor(dataset)
+        new_err_count = stage_one_count_errors(dataset)
+        print(f"Finished benchmarking {dataset}\n")
+        results.append(
+            {
+                "benchmark": dataset,
+                "initial_error_count": old_err_count,
+                "refactored_error_count": new_err_count,
+            }
+        )
+    print("Finished running benchmarks")
+    return
+
+
+def stage_one_annotate(dataset: str):
+    os.makedirs(ANNOTATOR_OUT_DIR, exist_ok=True)
+    with open(f"{ANNOTATOR_CONFIG}", "w") as config_file:
+        _ = config_file.write(f"{NULLAWAY_CONFIG}/\t{SCANNER_CONFIG}\n")
+
+    # Clear annotator output folder (required for annotator to run)
+    shutil.rmtree(ANNOTATOR_OUT_DIR + "/0", ignore_errors=True)
+
+    build_cmd = " ".join(get_build_cmd(dataset))
+    cwd = os.getcwd()
+
+    annotate_cmd: list[str] = [
+        "java",
+        "-jar",
+        f"{ANNOTATOR_JAR}",
+        # Absolute path of an Empty Directory where all outputs of AnnotatorScanner and NullAway are serialized.
+        "-d",
+        f"{ANNOTATOR_OUT_DIR}",
+        # Command to run Nullaway on target; Should be executable from anywhere
+        "-bc",
+        f'"cd {cwd} && {build_cmd}"',
+        # Path to a TSV file containing value of config paths
+        "-cp",
+        f"{ANNOTATOR_CONFIG}",
+        # Fully qualified name of the @Initializer annotation.
+        "-i",
+        "com.uber.nullaway.annotations.Initializer",
+        # Custom @Nullable annotation.
+        "-n",
+        "javax.annotation.Nullable",
+        # Checker name to be used for the analysis.
+        "-cn",
+        "NULLAWAY",
+        # Max depth to traverse
+        "--depth",
+        "10",
+    ]
+    res = subprocess.run(annotate_cmd, text=True, capture_output=True)
+    if res.returncode != 0:
+        print(
+            f"Annotation failed with exit code {res.returncode} for dataset {dataset}"
+        )
+    if DEBUG:
+        print(f"Annotate Command for dataset {dataset}: \n\t{" ".join(annotate_cmd)}\n")
+    with open(f"{OUTPUT_DIR}/{dataset}/annotator.txt", "w") as f:
+        f.write(f"CMD:\n\t{" ".join(annotate_cmd)}\n")
+        f.write(f"STDOUT:\n\t{res.stdout}\n")
+        f.write(f"STDERR:\n\t{res.stderr}\n")
+    return
+
+
+def stage_one_refactor(dataset: str):
+    output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
+    res = os.system(
+        f"./gradlew run --args='{DATASETS_REFACTORED_DIR}/{dataset} All' &> {output_file}"
+    )
+
+    if res != 0:
+        print(f"Running VGRTool failed with exit code {res} for dataset {dataset}")
+
+    if DEBUG:
+        print(
+            f"Build Command for dataset {dataset}: ./gradlew run --args='{DATASETS_REFACTORED_DIR}/{dataset} All' &> /dev/null"
+        )
+    return
+
+
+def stage_one_count_errors(dataset: str, new_run=False):
+    build_cmd = " ".join(get_build_cmd(dataset))
+    log_file = f"{OUTPUT_DIR}/{dataset}/error_count_log.txt"
+    output_file = f"{OUTPUT_DIR}/{dataset}/error_count.txt"
+    _ = os.system(f"{build_cmd} &> {log_file}")
+
+    if new_run:
+        shutil.rmtree(log_file, ignore_errors=True)
+        shutil.rmtree(output_file, ignore_errors=True)
+
+    # Read the file and count occurrences of NullAway errors
+    with open(log_file, "r") as f:
+        error_count = len(re.findall(r"error: \[NullAway\]", f.read()))
+
+    with open(output_file, "a") as f:
+        f.write(f"Error Count: {error_count}\n")
+
+    if DEBUG:
+        print(f"Errors found for dataset {dataset}: {error_count}")
+    return error_count
+
+
+def get_build_cmd(dataset: str):
+    lib_dir = f"{DATASETS_REFACTORED_DIR}/{dataset}/lib"
+    src_file = get_source_files(dataset)
+    plugin_options = get_plugin_options(dataset)
+
+    build_cmd: list[str] = ["javac"]
+    build_cmd += ERROR_PRONE_EXPORTS
+    build_cmd += [
+        "-d",
+        f"{COMPILED_CLASSES_DIR}",
+        "-cp",
+        f"{lib_dir}:{ANNOTATOR_JAR}",
+        "-XDcompilePolicy=simple",
+        "--should-stop=ifError=FLOW",
+        "-processorpath",
+        f"{PROCESSOR_JARS}",
+        f"'{plugin_options}'",
+        "-Xmaxerrs",
+        "0",
+        "-Xmaxwarns",
+        "0",
+        f"@{src_file}",
+    ]
+    return build_cmd
+
+
+def get_source_files(dataset):
+    find_srcs_command = [
+        "find",
+        f"{DATASETS_REFACTORED_DIR}/{dataset}/src",
+        "-name",
+        "*.java",
+    ]
+    src_file = f"{SRC_DIR}/{dataset}.txt"
+    with open(src_file, "w") as f:
+        _ = subprocess.run(find_srcs_command, stdout=f)
+    return src_file
+
+
+def get_plugin_options(dataset: str):
+    dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
+    find_pkgs_command = (
+        f"find {dataset_path}"
+        + " -name '*.java' -exec awk 'FNR==1 && /^package/ {print $2}' {} + | sed 's/;//' | sort -u | tr '\n\r' ',' | sed 's/,,/,/g' | sed 's/,$//'"
+    )
+
+    pkgs = subprocess.run(
+        find_pkgs_command, shell=True, capture_output=True
+    ).stdout.decode("utf-8")
+
+    # Split the annotated packages
+    annotated_pkgs = pkgs.strip()
+    annotated_pkgs_arg = f"-XepOpt:NullAway:AnnotatedPackages={annotated_pkgs}"
+
+    return f"-Xplugin:ErrorProne \
+             -XepDisableAllChecks \
+             -Xep:AnnotatorScanner:ERROR \
+             -XepOpt:AnnotatorScanner:ConfigPath={SCANNER_CONFIG}  \
+             -Xep:NullAway:ERROR \
+             -XepOpt:NullAway:SerializeFixMetadata=true \
+             -XepOpt:NullAway:FixSerializationConfigPath={NULLAWAY_CONFIG} \
+             {annotated_pkgs_arg}"
+
+
 def run():
     """
     Runs the full benchmarking routine for every dataset in the NJR-1 dataset collection and then summarizes the results.
     """
     stage_zero()
+    stage_one()
 
+
+argparser = argparse.ArgumentParser(description="Runs benchmark.")
+argparser.add_argument(
+    "--debug", action="store_true", help=f"Enabling debugging statements."
+)
+args = argparser.parse_args()
+
+DEBUG = args.debug
 
 run()
