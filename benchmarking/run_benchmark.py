@@ -170,7 +170,7 @@ def stage_one():
         ## Step 1: Annotate dataset
         stage_one_annotate(dataset)
 
-        ## Step 2: Count initials errors
+        ## Step 2: Count initial errors
         old_err_count = stage_one_count_errors(dataset)
 
         ## Step 3: Refactor dataset
@@ -238,9 +238,6 @@ def stage_one_annotate(dataset: str):
         # Fully qualified name of the @Initializer annotation.
         "-i",
         "com.uber.nullaway.annotations.Initializer",
-        # Custom @Nullable annotation.
-        "-n",
-        "javax.annotation.Nullable",
         # Checker name to be used for the analysis.
         "-cn",
         "NULLAWAY",
