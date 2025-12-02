@@ -27,6 +27,7 @@ DATASETS_REFACTORED_DIR = (
 DATASETS_REFACTORED_SAVE_DIR = f"{DATASETS_DIR}/old-runs/refactored"  # Directory for datasets that will be modified
 
 OUTPUT_DIR = f"{BENCHMARKING_DIR}/outputs"  # Directory for storing outputs
+OUTPUT_LOGS_DIR = f"{OUTPUT_DIR}/logs"  # Directory for storing outputs
 RESULTS_DIR = f"{OUTPUT_DIR}/results"  # Directory for storing result csvs
 SRC_DIR = f"{BENCHMARKING_DIR}/sources"  # Directory for storing text files listing source files for each project
 COMPILED_CLASSES_DIR = (
@@ -115,6 +116,7 @@ def stage_zero():
     print("Initializing benchmarking folders and datasets")
     os.makedirs(SRC_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(DATASETS_CACHE_DIR, exist_ok=True)
     os.makedirs(COMPILED_CLASSES_DIR, exist_ok=True)
@@ -192,7 +194,7 @@ def stage_one():
                 {
                     "benchmark": dataset,
                     "initial_error_count": "Error",
-                    "refactored_error_count": "N/A",
+                    "refactored_error_count": "",
                 }
             )
             continue
@@ -326,11 +328,9 @@ def stage_one_refactor(dataset: str):
 def stage_one_count_errors(dataset: str):
     """Builds the passed datsets and counts NullAway errors during the build process."""
     build_cmd = " ".join(get_build_cmd(dataset))
-    log_file = (
-        f"{OUTPUT_DIR}/{dataset}/error_count_log-{benchmark_start_time_string}.txt"
-    )
+    log_file = f"{OUTPUT_LOGS_DIR}/{dataset}-error_count_log-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
     output_file = (
-        f"{OUTPUT_DIR}/{dataset}/error_count-{benchmark_start_time_string}.txt"
+        f"{OUTPUT_LOGS_DIR}/{dataset}-error_count-{benchmark_start_time_string}.txt"
     )
 
     # Build the dataset and redirect all outputs to a log file
@@ -342,7 +342,7 @@ def stage_one_count_errors(dataset: str):
     # Handle javac / NullAway crash
     if res.returncode != 0:
         print(
-            f"Building dataset {dataset} failed with exit code {res}. Skipping dataset..."
+            f"Building dataset {dataset} failed with exit code {res.returncode}. Skipping dataset..."
         )
         return None  # Return None type so programs which are erroring do not look like real results
 
