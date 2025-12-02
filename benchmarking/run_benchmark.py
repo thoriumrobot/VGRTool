@@ -1,11 +1,20 @@
 # pyright: basic
 import argparse
+import csv
 from datetime import datetime
 import os
 import re
 import shutil
 import subprocess
 import sys
+from typing import TypedDict
+
+
+class BenchmarkingResult(TypedDict):
+    benchmark: str
+    initial_error_count: int | str  # "Error" for failed runs; Error count otherwise
+    refactored_error_count: int | str  # "Error" for failed runs; Error count otherwise
+
 
 BENCHMARKING_DIR = "./benchmarking"  # Base directory for benchmarking inputs / outputs
 DATASETS_DIR = (
@@ -17,7 +26,8 @@ DATASETS_REFACTORED_DIR = (
 )
 DATASETS_REFACTORED_SAVE_DIR = f"{DATASETS_DIR}/old-runs/refactored"  # Directory for datasets that will be modified
 
-OUTPUT_DIR = f"{BENCHMARKING_DIR}/results"  # Directory for storing outputs
+OUTPUT_DIR = f"{BENCHMARKING_DIR}/outputs"  # Directory for storing outputs
+RESULTS_DIR = f"{OUTPUT_DIR}/results"  # Directory for storing result csvs
 SRC_DIR = f"{BENCHMARKING_DIR}/sources"  # Directory for storing text files listing source files for each project
 COMPILED_CLASSES_DIR = (
     f"{BENCHMARKING_DIR}/compiled_classes"  # Directory for storing compiled_classes
@@ -81,8 +91,9 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
 
-results = []
 DEBUG = False
+
+benchmark_start_time_string = f"{datetime.now():%Y-%m-%d_%H:%M:%S}"
 
 
 # The initialization stage for benchmarking
@@ -90,7 +101,7 @@ DEBUG = False
 def stage_zero():
     print("Beginning Stage Zero: Initialization...")
 
-    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{datetime.now():%Y-%m-%d_%H:%M:%S}"
+    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{benchmark_start_time_string}"
     print(f"Saving existing refactored datasets to {save_dir}")
     if os.path.exists(DATASETS_REFACTORED_DIR):
         try:
@@ -163,6 +174,9 @@ def stage_one():
     """
     datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
 
+    # List of data structures representing the results of a benchmark
+    results: list[BenchmarkingResult] = []
+
     for dataset in datasets_list:
         print(f"Benchmarking {dataset}...")
         os.makedirs(f"{OUTPUT_DIR}/{dataset}", exist_ok=True)
@@ -172,15 +186,35 @@ def stage_one():
 
         ## Step 2: Count initial errors
         old_err_count = stage_one_count_errors(dataset)
+        if old_err_count is None:
+            print(f"Skipping {dataset} due to javac/NullAway crash.")
+            results.append(
+                {
+                    "benchmark": dataset,
+                    "initial_error_count": "Error",
+                    "refactored_error_count": "N/A",
+                }
+            )
+            continue
 
         ## Step 3: Refactor dataset
         stage_one_refactor(dataset)
 
         ## Step 4: Count errors after refactoring
         new_err_count = stage_one_count_errors(dataset)
+        if new_err_count is None:
+            print(f"Skipping {dataset} due to javac/NullAway crash after refactoring.")
+            results.append(
+                {
+                    "benchmark": dataset,
+                    "initial_error_count": old_err_count,
+                    "refactored_error_count": "Error",
+                }
+            )
+            continue
 
         print(
-            f"Finished benchmarking {dataset}. Errors: {old_err_count} --> {new_err_count}\n"
+            f"Succesfully benchmarked {dataset}. Errors: {old_err_count} --> {new_err_count}\n"
         )
         results.append(
             {
@@ -189,20 +223,14 @@ def stage_one():
                 "refactored_error_count": new_err_count,
             }
         )
-    print(f"Finished benchmarking {dataset}")
-    print("Results:")
-    for res in results:
-        print(
-            f"Dataset: {res['benchmark']}\nInitial Errors: {res['initial_error_count']}\nRefactored Errors: {res['refactored_error_count']}"
-        )
+    print(f"Finished benchmarking datasets.")
+    print(f"Saving results to csv...")
 
-    stage_one_save_results_to_csv()
+    stage_one_save_results(results)
     return
 
 
 # Utility Functions
-
-
 def stage_one_annotate(dataset: str):
     """
     Runs NullAwayAnnotator on the passed dataset in order to prepare it for
@@ -283,7 +311,7 @@ def stage_one_refactor(dataset: str):
             " ".join(refactor_cmd) + f" &> {output_file}", shell=True, check=False
         )
 
-    if res != 0:
+    if res.returncode != 0:
         print(
             f"Running VGRTool failed with exit code {res} for dataset {dataset}. See {output_file} for more details."
         )
@@ -299,10 +327,10 @@ def stage_one_count_errors(dataset: str):
     """Builds the passed datsets and counts NullAway errors during the build process."""
     build_cmd = " ".join(get_build_cmd(dataset))
     log_file = (
-        f"{OUTPUT_DIR}/{dataset}/error_count_log-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
+        f"{OUTPUT_DIR}/{dataset}/error_count_log-{benchmark_start_time_string}.txt"
     )
     output_file = (
-        f"{OUTPUT_DIR}/{dataset}/error_count-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
+        f"{OUTPUT_DIR}/{dataset}/error_count-{benchmark_start_time_string}.txt"
     )
 
     # Build the dataset and redirect all outputs to a log file
@@ -310,11 +338,13 @@ def stage_one_count_errors(dataset: str):
         res = subprocess.run(
             build_cmd, stdout=f, stderr=subprocess.STDOUT, check=False, text=True
         )
-        if res != 0:
-            print(
-                f"Building dataset {dataset} failed with exit code {res}. Skipping dataset..."
-            )
-            return
+
+    # Handle javac / NullAway crash
+    if res.returncode != 0:
+        print(
+            f"Building dataset {dataset} failed with exit code {res}. Skipping dataset..."
+        )
+        return None  # Return None type so programs which are erroring do not look like real results
 
     # Read the log file and count occurrences of NullAway errors
     with open(log_file, "r") as f:
@@ -398,19 +428,33 @@ def get_plugin_options(dataset: str):
              {annotated_pkgs_arg}"
 
 
-def stage_one_save_results_to_csv():
-    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{datetime.now():%Y-%m-%d_%H:%M:%S}"
+def stage_one_save_results(results):
+    """
+    Saves benchmark results to a csv"
+    """
 
-    print(f"Saving existing refactored datasets to {save_dir}")
-    if os.path.exists(DATASETS_REFACTORED_DIR):
-        try:
-            os.makedirs(DATASETS_REFACTORED_SAVE_DIR, exist_ok=True)
-            shutil.move(DATASETS_REFACTORED_DIR, save_dir)
-        except Exception as e:
-            print(
-                f"Fatal Error: Could not save existing refactored datasets. Move operation failed with error code: {e}. Exiting program."
-            )
-            sys.exit(1)
+    csv_path = f"{RESULTS_DIR}/results-{benchmark_start_time_string}"
+
+    column_names = [
+        "benchmark",
+        "initial_error_count",
+        "refactored_error_count",
+    ]
+
+    # Write CSV
+    with open(csv_path, "w") as f:
+        writer = csv.DictWriter(f, fieldnames=column_names)
+        writer.writeheader()
+
+        for result in results:
+            row = {
+                "benchmark": result["benchmark"],
+                "initial_error_count": (result["initial_error_count"]),
+                "refactored_error_count": (result["refactored_error_count"]),
+            }
+            writer.writerow(row)
+
+    print(f"Saved results to {csv_path}")
 
 
 def run():
