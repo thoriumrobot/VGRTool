@@ -1,6 +1,6 @@
 # Benchmarking
 
-# Stage Zero
+# Stage Zero: Initiailization
 
 The first stage of benchmarking involves downloading all the necessary files
 required, i.e. Jar files and the NJR-1 Dataset.
@@ -10,8 +10,7 @@ required, i.e. Jar files and the NJR-1 Dataset.
 In order for benchmarking to run, the jar files for all the following
 dependencies must be located in the `JARS_DIR` directory, in their respective
 sub-folder (i.e. `JARS_DIR/errorprone`, `JARS_DIR/nullaway`, and
-`JARS_DIR/annotator`). If not present, they will be automaticlaly downloaded
-from the Maven Repository.
+`JARS_DIR/annotator`)
 
 ## Note: Different versions of the following dependencies may not be compatable. The newest versions of each project that are confirmed to work together are:
 
@@ -66,3 +65,13 @@ before NullAway can process them.
 - [Checker-Qual](https://mvnrepository.com/artifact/org.checkerframework/checker-qual/)
   - checker-qual contains annotations (type qualifiers) that a programmer writes
     to specify Java code for type-checking by the Checker Framework.
+
+# Stage One: Annotation
+
+Stage One is the largest stage in terms of time consumption and computation. It
+involves running NullAwayAnnotator on the entire NJR-1 dataset in order to
+prepare it for refactoring, as well as to get an accurate count of the number of
+NullAway errors in the original programs, refactoring every program using VGR,
+and finally re-running annotator to get an updated error count. This cycle
+(annotate->refactor->annotate) is completed for each program in NJR-1
+sequentially.

@@ -8,7 +8,7 @@ bin
 # Ignore auto-generated benchmarking files and dependencies
 benchmarking/jars/
 benchmarking/datasets/
-benchmarking/results/
+benchmarking/outputs/
 benchmarking/sources/
 benchmarking/compiled_classes/
 
