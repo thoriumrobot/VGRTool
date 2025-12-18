@@ -41,8 +41,8 @@ NULLAWAY_JAR_DIR = f"{JARS_DIR}/nullaway"
 ANNOTATOR_JAR_DIR = f"{JARS_DIR}/annotator"
 PROCESSOR_JARS = [
     {
-        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.38.0-with-dependencies.jar",
-        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.38.0/error_prone_core-2.38.0.jar",
+        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.35.1-with-dependencies.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.35.1/error_prone_core-2.35.1.jar",
     },
     {
         "PATH": f"{ERRORPRONE_JAR_DIR}/dataflow-errorprone-3.49.3-eisop1.jar",
@@ -116,6 +116,7 @@ def stage_zero():
     print("Initializing benchmarking folders and datasets")
     os.makedirs(SRC_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_LOGS_DIR, exist_ok=True)
     os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(DATASETS_CACHE_DIR, exist_ok=True)
@@ -147,7 +148,7 @@ def stage_zero():
             sys.exit(1)
 
     print("Creating copy of NJR-1 datasets cache to refactor...")
-    res = os.system(f"cp -av {DATASETS_CACHE_DIR} {DATASETS_REFACTORED_DIR}")
+    res = os.system(f"cp -a {DATASETS_CACHE_DIR} {DATASETS_REFACTORED_DIR}")
     if res != 0:
         print(f"Copy dataset cache failed with exit code {res}. Exiting Program")
         sys.exit(1)
@@ -243,7 +244,7 @@ def stage_one_annotate(dataset: str):
 
     # Create config files
     os.makedirs(ANNOTATOR_OUT_DIR, exist_ok=True)
-    with open(f"{ANNOTATOR_CONFIG}", "w") as config_file:
+    with open(f"{ANNOTATOR_CONFIG}", "w+") as config_file:
         _ = config_file.write(f"{NULLAWAY_CONFIG}/\t{SCANNER_CONFIG}\n")
 
     # Clear annotator output folder (required for annotator to run)
@@ -283,7 +284,7 @@ def stage_one_annotate(dataset: str):
         return
 
     output_log_path = f"{OUTPUT_DIR}/{dataset}/annotator.txt"
-    with open(output_log_path, "w") as f:
+    with open(output_log_path, "w+") as f:
         f.write(f"CMD:\n\t{" ".join(annotate_cmd)}\n")
         f.write(f"STDOUT:\n\t{res.stdout}\n")
         f.write(f"STDERR:\n\t{res.stderr}\n")
@@ -306,16 +307,16 @@ def stage_one_refactor(dataset: str):
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
     dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
 
-    refactor_cmd: list[str] = ["./gradlew", "run", f"--args={dataset_path} All"]
+    refactor_cmd: list[str] = ["./gradlew", "run", f"'--args={dataset_path} All'"]
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w+") as f:
         res = subprocess.run(
             " ".join(refactor_cmd) + f" &> {output_file}", shell=True, check=False
         )
 
     if res.returncode != 0:
         print(
-            f"Running VGRTool failed with exit code {res} for dataset {dataset}. See {output_file} for more details."
+            f"Running VGRTool failed with exit code {res.returncode} for dataset {dataset}. See {output_file} for more details."
         )
 
     if DEBUG:
@@ -334,17 +335,23 @@ def stage_one_count_errors(dataset: str):
     )
 
     # Build the dataset and redirect all outputs to a log file
-    with open(log_file, "w") as f:
+    with open(log_file, "w+") as f:
         res = subprocess.run(
-            build_cmd, stdout=f, stderr=subprocess.STDOUT, check=False, text=True
+            build_cmd,
+            stdout=f,
+            stderr=subprocess.STDOUT,
+            check=False,
+            text=True,
+            shell=True,
         )
+        f.write(build_cmd)
 
     # Handle javac / NullAway crash
-    if res.returncode != 0:
-        print(
-            f"Building dataset {dataset} failed with exit code {res.returncode}. Skipping dataset..."
-        )
-        return None  # Return None type so programs which are erroring do not look like real results
+    # if res.returncode != 0:
+    #     print(
+    #         f"Building dataset {dataset} failed with exit code {res.returncode}. Skipping dataset..."
+    #     )
+    #     return None  # Return None type so programs which are erroring do not look like real results
 
     # Read the log file and count occurrences of NullAway errors
     with open(log_file, "r") as f:
@@ -376,7 +383,7 @@ def get_build_cmd(dataset: str):
         "-XDcompilePolicy=simple",
         "--should-stop=ifError=FLOW",
         "-processorpath",
-        f"{PROCESSOR_JARS}",
+        f"{PROCESSOR_JAR_PATHS}",
         f"'{plugin_options}'",
         "-Xmaxerrs",
         "0",
@@ -395,7 +402,7 @@ def get_source_files(dataset):
         "*.java",
     ]
     src_file = f"{SRC_DIR}/{dataset}.txt"
-    with open(src_file, "w") as f:
+    with open(src_file, "w+") as f:
         _ = subprocess.run(find_srcs_command, stdout=f)
     return src_file
 
@@ -442,7 +449,7 @@ def stage_one_save_results(results):
     ]
 
     # Write CSV
-    with open(csv_path, "w") as f:
+    with open(csv_path, "w+") as f:
         writer = csv.DictWriter(f, fieldnames=column_names)
         writer.writeheader()
 
