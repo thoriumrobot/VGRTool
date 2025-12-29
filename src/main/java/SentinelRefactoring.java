@@ -187,6 +187,9 @@ public class SentinelRefactoring extends Refactoring {
 
 	private void updateSentinel(VariableDeclaration declaration) {
 		IBinding key = declaration.getName().resolveBinding();
+		if (declaration.getInitializer() == null) {
+			return;
+		}
 		Object newValue = declaration.getInitializer().resolveConstantExpressionValue();
 		updateSentinel(key, newValue);
 	}
