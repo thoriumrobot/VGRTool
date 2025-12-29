@@ -56,6 +56,9 @@ public class NestedNullRefactoring extends Refactoring {
 	 * that returns the result of a null check
 	 */
 	private boolean isApplicableImpl(MethodInvocation invocation) {
+		if (invocation.resolveMethodBinding() == null) {
+			return false;
+		}
 		if (applicableMethods.get(invocation.resolveMethodBinding()) != null) {
 			System.out.println("[DEBUG] Invocation of applicable method found");
 			return true;
@@ -70,6 +73,9 @@ public class NestedNullRefactoring extends Refactoring {
 	private boolean isApplicableImpl(MethodDeclaration declaration) {
 		// getReturnType() is deprecated and replaced by getReturnType2()
 		Type retType = declaration.getReturnType2();
+		if (retType == null) {
+			return false;
+		}
 		boolean returnsBoolean = (retType.isPrimitiveType()
 				&& ((PrimitiveType) retType).getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 		if (!(returnsBoolean)) {
