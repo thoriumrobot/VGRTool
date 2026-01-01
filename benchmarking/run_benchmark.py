@@ -111,7 +111,7 @@ def stage_zero():
             print(
                 f"Fatal Error: Could not save existing refactored datasets to {save_dir}. Move operation failed. Exiting program."
             )
-        sys.exit(1)
+            sys.exit(1)
 
     print("Initializing benchmarking folders and datasets")
     os.makedirs(SRC_DIR, exist_ok=True)
