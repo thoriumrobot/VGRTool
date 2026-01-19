@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
@@ -33,7 +34,8 @@ public class RefactoringEngine {
 				case BooleanFlagRefactoring.NAME -> refactorings.add(new BooleanFlagRefactoring());
 				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
 				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
-				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
+				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(),
+						new BooleanFlagRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
 				default -> System.err.println("Unknown refactoring: " + name);
 			}
 
