@@ -18,6 +18,7 @@ import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.text.edits.TextEditGroup;
 import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.SuperMethodInvocation;
 import org.eclipse.jdt.core.dom.VariableDeclaration;
@@ -26,6 +27,7 @@ import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.*;
 
 /**
  * This class represents a refactoring in which integer variables whose values
@@ -44,7 +46,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * the key, ensuring global uniqueness. Two variables who have the same name but
 	 * have different scopes will have different IBinding instances.
 	 */
-	private final Map<IBinding, Sentinel> sentinelCandidates;
+	private final Map<IBinding, @NonNull Sentinel> sentinelCandidates;
 	/**
 	 * Set of all sentinel assignments which have already been parsed; Used to
 	 * prevent repeated parsing of same sentinel assignment.
@@ -59,17 +61,19 @@ public class SentinelRefactoring extends Refactoring {
 		/**
 		 * The original assignment statement setting the sentinel's value.
 		 */
-		public Assignment sentinel_assignment;
+		public @Nullable Assignment sentinel_assignment;
 		/**
 		 * The conditional expression used to decide the value of the sentinel.
 		 */
-		public InfixExpression null_check;
+		public @Nullable InfixExpression null_check;
 		/**
-		 * The last value assigned to the sentinel; Used for validity tracking.
+		 * The last value assigned to the sentinel; Used for validity tracking. A null
+		 * value represents an unknown previous value.
 		 */
-		public Object lastValue;
+		public @Nullable Object lastValue;
 
-		public Sentinel(Assignment sentinel_assignment, InfixExpression null_check, Object lastValue) {
+		public Sentinel(@Nullable Assignment sentinel_assignment, @Nullable InfixExpression null_check,
+				@Nullable Object lastValue) {
 			this.sentinel_assignment = sentinel_assignment;
 			this.null_check = null_check;
 			this.lastValue = lastValue;
@@ -91,7 +95,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * Detects reassignments of existing sentinels If reassignment is detected,
 	 * removes the sentinel from the list of valid sentinels.
 	 */
-	private void detectReassignment(Assignment assignmentNode) {
+	private void detectReassignment(@NonNull Assignment assignmentNode) {
 		// Skip assignments that initially define a sentinel.
 		if (sentinelAssignments.contains(assignmentNode)) {
 			return;
@@ -109,7 +113,7 @@ public class SentinelRefactoring extends Refactoring {
 	/*
 	 * Detects sentinels which are shadowed by new local variables and removes them.
 	 */
-	private void detectShadowing(VariableDeclarationStatement declaration) {
+	private void detectShadowing(@NonNull VariableDeclarationStatement declaration) {
 		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
 		// valid.
 		List<VariableDeclarationFragment> fragments = declaration.fragments();
@@ -135,7 +139,8 @@ public class SentinelRefactoring extends Refactoring {
 	 *            The value assigned to the sentinel when the null_check condition
 	 *            is true
 	 */
-	private boolean isValidSentinel(Assignment sentinel_assignment, Expression null_check, Object newValue) {
+	private boolean isValidSentinel(@NonNull Assignment sentinel_assignment, @NonNull Expression null_check,
+			@NonNull Object newValue) {
 
 		LOGGER.debug("Parsing Sentinel: %s, %s, %s", sentinel_assignment, null_check, newValue);
 
@@ -169,7 +174,7 @@ public class SentinelRefactoring extends Refactoring {
 
 	}
 
-	private void updateSentinel(ASTNode node) {
+	private void updateSentinel(@NonNull ASTNode node) {
 		if (node instanceof VariableDeclaration declaration) {
 			updateSentinel(declaration);
 		} else if (node instanceof Assignment assign) {
@@ -180,18 +185,20 @@ public class SentinelRefactoring extends Refactoring {
 			for (Map.Entry<IBinding, Sentinel> entry : sentinelCandidates.entrySet()) {
 				IBinding key = entry.getKey();
 				Sentinel sentinel = sentinelCandidates.get(key);
-				sentinel.lastValue = null;
+				if (sentinel != null) {
+					sentinel.lastValue = null;
+				}
 			}
 		}
 	}
 
-	private void updateSentinel(VariableDeclaration declaration) {
+	private void updateSentinel(@NonNull VariableDeclaration declaration) {
 		IBinding key = declaration.getName().resolveBinding();
 		Object newValue = declaration.getInitializer().resolveConstantExpressionValue();
 		updateSentinel(key, newValue);
 	}
 
-	private void updateSentinel(Assignment statement) {
+	private void updateSentinel(@NonNull Assignment statement) {
 		if (!(statement.getLeftHandSide() instanceof SimpleName varName)) {
 			return;
 		}
@@ -200,7 +207,7 @@ public class SentinelRefactoring extends Refactoring {
 		updateSentinel(key, newValue);
 	}
 
-	private void updateSentinel(IBinding key, Object newValue) {
+	private void updateSentinel(@NonNull IBinding key, @NonNull Object newValue) {
 		Sentinel sentinel = sentinelCandidates.get(key);
 		if (sentinel == null) {
 			sentinelCandidates.put(key, new Sentinel(null, null, newValue));
@@ -210,7 +217,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	@Override
-	public boolean isApplicable(ASTNode node) {
+	public boolean isApplicable(@NonNull ASTNode node) {
 		updateSentinel(node);
 		if (node instanceof IfStatement ifStmt && isApplicable(ifStmt)) {
 			return true;
@@ -230,7 +237,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param ifStmt
 	 *            The node to parse
 	 */
-	public boolean isApplicable(IfStatement ifStmt) {
+	public boolean isApplicable(@NonNull IfStatement ifStmt) {
 		// Parse IfStatement block for declarations of sentinel candidates.
 		detectSentinels(ifStmt);
 
@@ -250,7 +257,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param ifStmt
 	 *            The node to parse
 	 */
-	public boolean isApplicable(InfixExpression infix) {
+	public boolean isApplicable(@NonNull InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
 		Expression rightOperand = infix.getRightOperand();
 		InfixExpression.Operator operator = infix.getOperator();
@@ -265,7 +272,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param expr
 	 *            the Expression to parse
 	 */
-	private boolean isEqualityCheck(InfixExpression.Operator operator) {
+	private boolean isEqualityCheck(@Nullable Operator operator) {
 		return ((operator == InfixExpression.Operator.NOT_EQUALS || operator == InfixExpression.Operator.EQUALS));
 	}
 
@@ -275,7 +282,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param expr
 	 *            the Expression to parse
 	 */
-	private boolean usesSentinel(Expression expr) {
+	private boolean usesSentinel(@NonNull Expression expr) {
 		if (!(expr instanceof SimpleName sentinel_name)) {
 			return false;
 		}
@@ -289,7 +296,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param ifStmt
 	 *            The node to parse
 	 */
-	public void detectSentinels(IfStatement ifStmt) {
+	public void detectSentinels(@NonNull IfStatement ifStmt) {
 		// Check if IfStatement conditonal utilizes a null check.
 		InfixExpression null_check = parseNullCheck(Refactoring.getSubExpressions(ifStmt.getExpression()));
 		if (null_check == null) {
@@ -336,7 +343,7 @@ public class SentinelRefactoring extends Refactoring {
 	}
 
 	@Override
-	public void apply(ASTNode node, ASTRewrite rewriter) {
+	public void apply(@NonNull ASTNode node, @NonNull ASTRewrite rewriter) {
 		if (!(node instanceof IfStatement ifStmt)) {
 			return;
 		}
@@ -378,6 +385,9 @@ public class SentinelRefactoring extends Refactoring {
 			Expression sent_val = sentinel_assignment.getRightHandSide();
 
 			InfixExpression null_check = sentinel.null_check;
+			if (null_check == null) {
+				continue;
+			}
 			InfixExpression.Operator null_check_op = null_check.getOperator();
 
 			AST ast = node.getAST();
@@ -385,7 +395,7 @@ public class SentinelRefactoring extends Refactoring {
 			boolean originalValueMatch = sent_val.resolveConstantExpressionValue()
 					.equals(cond_val.resolveConstantExpressionValue());
 			replacement.setOperator(getRefactoredOperator(null_check_op, cond_op, originalValueMatch));
-			rewriter.replace(expression, replacement, null);
+			rewriter.replace(expression, replacement, new TextEditGroup(""));
 
 		}
 	}
@@ -393,19 +403,19 @@ public class SentinelRefactoring extends Refactoring {
 	/**
 	 * Returns the opposite of the given InfixExpression equality operator.
 	 */
-	private InfixExpression.Operator reverseOperator(InfixExpression.Operator op) {
+	private @NonNull Operator reverseOperator(@NonNull Operator op) {
 		if (op == InfixExpression.Operator.EQUALS) {
 			return InfixExpression.Operator.NOT_EQUALS;
 		} else if (op == InfixExpression.Operator.NOT_EQUALS) {
 			return InfixExpression.Operator.EQUALS;
 		}
-		return null;
+		return op;
 	}
 
 	/**
 	 * Returns the conditonal operator to use in a refactored null check.
 	 */
-	public InfixExpression.Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
+	public @NonNull Operator getRefactoredOperator(@NonNull Operator null_check_op, @NonNull Operator sentinel_check_op,
 			boolean originalValueMatch) {
 		Operator refactoredOperator = originalValueMatch ? null_check_op : reverseOperator(null_check_op);
 
@@ -420,7 +430,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param exprs
 	 *            A list of expressions to parse
 	 */
-	public InfixExpression parseNullCheck(List<Expression> exprs) {
+	public @Nullable InfixExpression parseNullCheck(@NonNull List<Expression> exprs) {
 		for (Expression expr : exprs) {
 			if (expr instanceof InfixExpression null_check_candidate) {
 				Expression leftOperand = null_check_candidate.getLeftOperand();
