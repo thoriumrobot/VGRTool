@@ -30,6 +30,7 @@ public class RefactoringEngine {
 			switch (name) {
 				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
+				case BooleanFlagRefactoring.NAME -> refactorings.add(new BooleanFlagRefactoring());
 				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
 				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
 				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
