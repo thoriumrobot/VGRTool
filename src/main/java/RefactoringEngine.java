@@ -32,6 +32,7 @@ public class RefactoringEngine {
 					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
 				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
 				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
+				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
 				default -> System.err.println("Unknown refactoring: " + name);
 			}
 
