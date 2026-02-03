@@ -30,6 +30,11 @@ dependencies {
 	implementation 'org.checkerframework:checker:3.21.0'
 	annotationProcessor 'org.checkerframework:checker:3.21.0'
 
+	// Specify Checker Framework v3.52.0
+	compileOnly("org.checkerframework:checker-qual:3.52.0")
+	testCompileOnly("org.checkerframework:checker-qual:3.52.0")
+	checkerFramework("org.checkerframework:checker:3.52.0")
+
 	// Apache Commons
 	implementation 'commons-io:commons-io:2.16.1'
 
