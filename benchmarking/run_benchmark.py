@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
-from turtle import pd
+import pandas as pd
 from typing import TypedDict
 
 
