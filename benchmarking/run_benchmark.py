@@ -1,8 +1,20 @@
 # pyright: basic
+import argparse
+import csv
 from datetime import datetime
 import os
+import re
 import shutil
+import subprocess
 import sys
+from typing import TypedDict
+
+
+class BenchmarkingResult(TypedDict):
+    benchmark: str
+    initial_error_count: int | str  # "Error" for failed runs; Error count otherwise
+    refactored_error_count: int | str  # "Error" for failed runs; Error count otherwise
+
 
 BENCHMARKING_DIR = "./benchmarking"  # Base directory for benchmarking inputs / outputs
 DATASETS_DIR = (
@@ -14,7 +26,9 @@ DATASETS_REFACTORED_DIR = (
 )
 DATASETS_REFACTORED_SAVE_DIR = f"{DATASETS_DIR}/old-runs/refactored"  # Directory for datasets that will be modified
 
-OUTPUT_DIR = f"{BENCHMARKING_DIR}/results"  # Directory for storing outputs
+OUTPUT_DIR = f"{BENCHMARKING_DIR}/outputs"  # Directory for storing outputs
+OUTPUT_LOGS_DIR = f"{OUTPUT_DIR}/logs"  # Directory for storing outputs
+RESULTS_DIR = f"{OUTPUT_DIR}/results"  # Directory for storing result csvs
 SRC_DIR = f"{BENCHMARKING_DIR}/sources"  # Directory for storing text files listing source files for each project
 COMPILED_CLASSES_DIR = (
     f"{BENCHMARKING_DIR}/compiled_classes"  # Directory for storing compiled_classes
@@ -27,8 +41,8 @@ NULLAWAY_JAR_DIR = f"{JARS_DIR}/nullaway"
 ANNOTATOR_JAR_DIR = f"{JARS_DIR}/annotator"
 PROCESSOR_JARS = [
     {
-        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.38.0-with-dependencies.jar",
-        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.38.0/error_prone_core-2.38.0.jar",
+        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.35.1-with-dependencies.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.35.1/error_prone_core-2.35.1.jar",
     },
     {
         "PATH": f"{ERRORPRONE_JAR_DIR}/dataflow-errorprone-3.49.3-eisop1.jar",
@@ -78,13 +92,19 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
 
+# Arguments
+DEBUG = False  # Debug Mode
+MODULE = "All"  # Refactoring Module to use
+
+benchmark_start_time_string = f"{datetime.now():%Y-%m-%d_%H:%M:%S}"
+
 
 # The initialization stage for benchmarking
 # Creates the necessary directories, saves old refactored datasets, confirms the existence of the necessary jar files, and downloads NJR-1 dataset if it has not been already.
 def stage_zero():
     print("Beginning Stage Zero: Initialization...")
 
-    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{datetime.now():%Y-%m-%d_%H:%M:%S}"
+    save_dir = f"{DATASETS_REFACTORED_SAVE_DIR}/{benchmark_start_time_string}"
     print(f"Saving existing refactored datasets to {save_dir}")
     if os.path.exists(DATASETS_REFACTORED_DIR):
         try:
@@ -93,11 +113,13 @@ def stage_zero():
             print(
                 f"Fatal Error: Could not save existing refactored datasets to {save_dir}. Move operation failed. Exiting program."
             )
-        sys.exit(1)
+            sys.exit(1)
 
     print("Initializing benchmarking folders and datasets")
     os.makedirs(SRC_DIR, exist_ok=True)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_LOGS_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     os.makedirs(DATASETS_DIR, exist_ok=True)
     os.makedirs(DATASETS_CACHE_DIR, exist_ok=True)
     os.makedirs(COMPILED_CLASSES_DIR, exist_ok=True)
@@ -128,7 +150,7 @@ def stage_zero():
             sys.exit(1)
 
     print("Creating copy of NJR-1 datasets cache to refactor...")
-    res = os.system(f"cp -av {DATASETS_CACHE_DIR} {DATASETS_REFACTORED_DIR}")
+    res = os.system(f"cp -a {DATASETS_CACHE_DIR} {DATASETS_REFACTORED_DIR}")
     if res != 0:
         print(f"Copy dataset cache failed with exit code {res}. Exiting Program")
         sys.exit(1)
@@ -151,11 +173,323 @@ def stage_zero():
     print("Benchmarking Stage Zero Completed\n")
 
 
+def stage_one():
+    """
+    Runs the full benchmarking routine (Annotate -> Count Errors -> Refactor -> Annotate -> Count Errors) for every dataset in the NJR-1 dataset collection and then summarizes the results.
+    """
+    datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
+
+    # List of data structures representing the results of a benchmark
+    results: list[BenchmarkingResult] = []
+
+    for dataset in datasets_list:
+        print(f"Benchmarking {dataset}...")
+        os.makedirs(f"{OUTPUT_DIR}/{dataset}", exist_ok=True)
+
+        ## Step 1: Annotate dataset
+        stage_one_annotate(dataset)
+
+        ## Step 2: Count initial errors
+        old_err_count = stage_one_count_errors(dataset)
+        if old_err_count is None:
+            print(f"Skipping {dataset} due to javac/NullAway crash.")
+            results.append(
+                {
+                    "benchmark": dataset,
+                    "initial_error_count": "Error",
+                    "refactored_error_count": "",
+                }
+            )
+            continue
+
+        ## Step 3: Refactor dataset
+        stage_one_refactor(dataset)
+
+        ## Step 4: Count errors after refactoring
+        new_err_count = stage_one_count_errors(dataset)
+        if new_err_count is None:
+            print(f"Skipping {dataset} due to javac/NullAway crash after refactoring.")
+            results.append(
+                {
+                    "benchmark": dataset,
+                    "initial_error_count": old_err_count,
+                    "refactored_error_count": "Error",
+                }
+            )
+            continue
+
+        print(
+            f"Succesfully benchmarked {dataset}. Errors: {old_err_count} --> {new_err_count}\n"
+        )
+        results.append(
+            {
+                "benchmark": dataset,
+                "initial_error_count": old_err_count,
+                "refactored_error_count": new_err_count,
+            }
+        )
+    print(f"Finished benchmarking datasets.")
+    print(f"Saving results to csv...")
+
+    stage_one_save_results(results)
+    return
+
+
+# Utility Functions
+def stage_one_annotate(dataset: str):
+    """
+    Runs NullAwayAnnotator on the passed dataset in order to prepare it for
+    refactoring
+    """
+
+    print(f"Annotating {dataset}...")
+
+    # Create config files
+    os.makedirs(ANNOTATOR_OUT_DIR, exist_ok=True)
+    with open(f"{ANNOTATOR_CONFIG}", "w+") as config_file:
+        _ = config_file.write(f"{NULLAWAY_CONFIG}/\t{SCANNER_CONFIG}\n")
+
+    # Clear annotator output folder (required for annotator to run)
+    shutil.rmtree(ANNOTATOR_OUT_DIR + "/0", ignore_errors=True)
+
+    build_cmd = " ".join(get_build_cmd(dataset))
+    cwd = os.getcwd()
+
+    annotate_cmd: list[str] = [
+        "java",
+        "-jar",
+        ANNOTATOR_JAR,
+        # Absolute path of an Empty Directory where all outputs of AnnotatorScanner and NullAway are serialized.
+        "-d",
+        ANNOTATOR_OUT_DIR,
+        # Command to run Nullaway on target; Should be executable from anywhere
+        "-bc",
+        f'"cd {cwd} && {build_cmd}"',
+        # Path to a TSV file containing value of config paths
+        "-cp",
+        ANNOTATOR_CONFIG,
+        # Fully qualified name of the @Initializer annotation.
+        "-i",
+        "com.uber.nullaway.annotations.Initializer",
+        # Checker name to be used for the analysis.
+        "-cn",
+        "NULLAWAY",
+        # Max depth to traverse as part of the analysis search
+        "--depth",
+        "10",
+    ]
+    res = subprocess.run(annotate_cmd, text=True, capture_output=True)
+    if res.returncode != 0:
+        print(
+            f"Annotation failed with exit code {res.returncode} for dataset {dataset}"
+        )
+        return
+
+    output_log_path = f"{OUTPUT_DIR}/{dataset}/annotator.txt"
+    with open(output_log_path, "w+") as f:
+        f.write(f"CMD:\n\t{" ".join(annotate_cmd)}\n")
+        f.write(f"STDOUT:\n\t{res.stdout}\n")
+        f.write(f"STDERR:\n\t{res.stderr}\n")
+
+    if DEBUG:
+        print(
+            f"Command used to annotate dataset {dataset}: \n\t{" ".join(annotate_cmd)}\n"
+        )
+
+    return
+
+
+def stage_one_refactor(dataset: str):
+    """
+    Runs VGR on the passed dataset
+    """
+
+    print(f"Refactoring {dataset}...")
+
+    output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
+    dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
+
+    refactor_cmd: list[str] = ["./gradlew", "run", f"--args='{dataset_path} {MODULE}'"]
+
+    with open(output_file, "w+") as f:
+        res = subprocess.run(
+            " ".join(refactor_cmd) + f" &> {output_file}", shell=True, check=False
+        )
+
+    if res.returncode != 0:
+        print(
+            f"Running VGRTool failed with exit code {res.returncode} for dataset {dataset}. See {output_file} for more details."
+        )
+
+    if DEBUG:
+        print(
+            f"Refactor Command for dataset {dataset}: : {' '.join(refactor_cmd)} &> {output_file}"
+        )
+    return
+
+
+def stage_one_count_errors(dataset: str):
+    """Builds the passed datsets and counts NullAway errors during the build process."""
+    build_cmd = " ".join(get_build_cmd(dataset))
+    log_file = f"{OUTPUT_LOGS_DIR}/{dataset}-error_count_log-{datetime.now():%Y-%m-%d_%H:%M:%S}.txt"
+    output_file = (
+        f"{OUTPUT_LOGS_DIR}/{dataset}-error_count-{benchmark_start_time_string}.txt"
+    )
+
+    # Build the dataset and redirect all outputs to a log file
+    with open(log_file, "w+") as f:
+        res = subprocess.run(
+            build_cmd,
+            stdout=f,
+            stderr=subprocess.STDOUT,
+            check=False,
+            text=True,
+            shell=True,
+        )
+        f.write(build_cmd)
+
+    # Handle javac / NullAway crash
+    # if res.returncode != 0:
+    #     print(
+    #         f"Building dataset {dataset} failed with exit code {res.returncode}. Skipping dataset..."
+    #     )
+    #     return None  # Return None type so programs which are erroring do not look like real results
+
+    # Read the log file and count occurrences of NullAway errors
+    with open(log_file, "r") as f:
+        error_count = len(re.findall(r"error: \[NullAway\]", f.read()))
+
+    with open(output_file, "a") as f:
+        f.write(f"Error Count: {error_count}\n")
+
+    if DEBUG:
+        print(f"Number of errors found for dataset {dataset}: {error_count}")
+    return error_count
+
+
+def get_build_cmd(dataset: str):
+    """
+    Constructs the full 'javac' build command used to compile the passed dataset.
+    """
+    lib_dir = f"{DATASETS_REFACTORED_DIR}/{dataset}/lib"
+    src_file = get_source_files(dataset)
+    plugin_options = get_plugin_options(dataset)
+
+    build_cmd: list[str] = ["javac"]
+    build_cmd += ERROR_PRONE_EXPORTS
+    build_cmd += [
+        "-d",
+        f"{COMPILED_CLASSES_DIR}",
+        "-cp",
+        f"{lib_dir}:{ANNOTATOR_JAR}",
+        "-XDcompilePolicy=simple",
+        "--should-stop=ifError=FLOW",
+        "-processorpath",
+        f"{PROCESSOR_JAR_PATHS}",
+        f"'{plugin_options}'",
+        "-Xmaxerrs",
+        "0",
+        "-Xmaxwarns",
+        "0",
+        f"@{src_file}",
+    ]
+    return build_cmd
+
+
+def get_source_files(dataset):
+    find_srcs_command = [
+        "find",
+        f"{DATASETS_REFACTORED_DIR}/{dataset}/src",
+        "-name",
+        "*.java",
+    ]
+    src_file = f"{SRC_DIR}/{dataset}.txt"
+    with open(src_file, "w+") as f:
+        _ = subprocess.run(find_srcs_command, stdout=f)
+    return src_file
+
+
+def get_plugin_options(dataset: str):
+    """
+    Generates the -Xplugin:ErrorProne option string, including a dynamically generated list of packages to annotate.
+    """
+    dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
+    find_pkgs_command = (
+        f"find {dataset_path}"
+        + " -name '*.java' -exec awk 'FNR==1 && /^package/ {print $2}' {} + | sed 's/;//' | sort -u | tr '\n\r' ',' | sed 's/,,/,/g' | sed 's/,$//'"
+    )
+
+    pkgs = subprocess.run(
+        find_pkgs_command, shell=True, capture_output=True
+    ).stdout.decode("utf-8")
+
+    # Split the annotated packages
+    annotated_pkgs = pkgs.strip()
+    annotated_pkgs_arg = f"-XepOpt:NullAway:AnnotatedPackages={annotated_pkgs}"
+
+    return f"-Xplugin:ErrorProne \
+             -XepDisableAllChecks \
+             -Xep:AnnotatorScanner:ERROR \
+             -XepOpt:AnnotatorScanner:ConfigPath={SCANNER_CONFIG}  \
+             -Xep:NullAway:ERROR \
+             -XepOpt:NullAway:SerializeFixMetadata=true \
+             -XepOpt:NullAway:FixSerializationConfigPath={NULLAWAY_CONFIG} \
+             {annotated_pkgs_arg}"
+
+
+def stage_one_save_results(results):
+    """
+    Saves benchmark results to a csv"
+    """
+
+    csv_path = f"{RESULTS_DIR}/results-{benchmark_start_time_string}"
+
+    column_names = [
+        "benchmark",
+        "initial_error_count",
+        "refactored_error_count",
+    ]
+
+    # Write CSV
+    with open(csv_path, "w+") as f:
+        writer = csv.DictWriter(f, fieldnames=column_names)
+        writer.writeheader()
+
+        for result in results:
+            row = {
+                "benchmark": result["benchmark"],
+                "initial_error_count": (result["initial_error_count"]),
+                "refactored_error_count": (result["refactored_error_count"]),
+            }
+            writer.writerow(row)
+
+    print(f"Saved results to {csv_path}")
+
+
 def run():
     """
     Runs the full benchmarking routine for every dataset in the NJR-1 dataset collection and then summarizes the results.
     """
     stage_zero()
+    stage_one()
 
 
-run()
+def main():
+    """Main entry point of the script."""
+    global DEBUG
+    argparser = argparse.ArgumentParser(description="Runs benchmark.")
+    argparser.add_argument(
+        "--debug", action="store_true", help="Enabling debugging statements."
+    )
+    argparser.add_argument(
+        "module", help="The refactoring module to use.", default="All"
+    )
+    args = argparser.parse_args()
+    DEBUG = args.debug
+    MODULE = args.module
+
+    run()
+
+
+if __name__ == "__main__":
+    main()
