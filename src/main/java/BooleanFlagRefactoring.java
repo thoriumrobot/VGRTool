@@ -2,6 +2,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.checkerframework.checker.nullness.qual.*;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
@@ -18,6 +19,7 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.text.edits.TextEditGroup;
 
 /**
  * This class represents a refactoring in which boolean flags are replaced with
@@ -30,7 +32,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * List of variable names identified as boolean flags, along with their
 	 * corresponding initializer expression
 	 */
-	private final Map<IBinding, Expression> flagExpressions;
+	private final Map<IBinding, @NonNull Expression> flagExpressions;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public BooleanFlagRefactoring() {
@@ -39,7 +41,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	@Override
-	public boolean isApplicable(ASTNode node) {
+	public boolean isApplicable(@NonNull ASTNode node) {
 		if (node instanceof VariableDeclarationStatement stmt) {
 			return isApplicable(stmt);
 		} else if (node instanceof IfStatement ifStmt) {
@@ -54,7 +56,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Checks to see if a VariableDeclarationStatement defines a boolean flag that
 	 * represents another variable's nullness
 	 */
-	private boolean isApplicable(VariableDeclarationStatement stmt) {
+	private boolean isApplicable(@NonNull VariableDeclarationStatement stmt) {
 		boolean isBooleanDeclaration = (stmt.getType() instanceof PrimitiveType pType
 				&& pType.getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 
@@ -66,7 +68,10 @@ public class BooleanFlagRefactoring extends Refactoring {
 		AST ast = stmt.getAST();
 
 		// Search through all declared variables in declaration node for a booleanflag
-		for (VariableDeclarationFragment frag : (List<VariableDeclarationFragment>) stmt.fragments()) {
+		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
+		// valid.
+		List<VariableDeclarationFragment> fragments = (List<VariableDeclarationFragment>) stmt.fragments();
+		for (VariableDeclarationFragment frag : fragments) {
 			Expression varInitializer = frag.getInitializer();
 			if (varInitializer == null) {
 				continue;
@@ -92,7 +97,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Analyzes an IfStatement to see if it contains a check utilizing an identified
 	 * boolean flag
 	 */
-	private boolean isApplicable(IfStatement ifStmt) {
+	private boolean isApplicable(@NonNull IfStatement ifStmt) {
 		List<Expression> exprFragments = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expr : exprFragments) {
 			if (expr instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
@@ -111,15 +116,15 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return false;
 	}
 
-	private boolean isFlag(SimpleName potentialFlag) {
+	private boolean isFlag(@NonNull SimpleName potentialFlag) {
 		return flagExpressions.get(potentialFlag.resolveBinding()) != null;
 	}
 
-	private boolean isEqualityOperator(Operator op) {
+	private boolean isEqualityOperator(@NonNull Operator op) {
 		return (op == Operator.NOT_EQUALS || op == Operator.EQUALS);
 	}
 
-	private SimpleName getNullComparisonVariable(InfixExpression infix) {
+	private @Nullable SimpleName getNullComparisonVariable(@NonNull InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
 		Expression rightOperand = infix.getRightOperand();
 		if (leftOperand instanceof SimpleName varName && rightOperand instanceof NullLiteral) {
@@ -132,7 +137,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	@Override
-	public void apply(ASTNode node, ASTRewrite rewriter) {
+	public void apply(@NonNull ASTNode node, @NonNull ASTRewrite rewriter) {
 		if (!(node instanceof IfStatement ifStmt)) {
 			return;
 		}
@@ -148,13 +153,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 	}
 
-	private void apply(ASTRewrite rewriter, SimpleName flagName) {
+	private void apply(@NonNull ASTRewrite rewriter, @Nullable SimpleName flagName) {
 		if (flagName == null || !isFlag(flagName)) {
 			return;
 		}
 		Expression newExpr = flagExpressions.get(flagName.resolveBinding());
 		if (newExpr != null) {
-			rewriter.replace(flagName, newExpr, null);
+			rewriter.replace(flagName, newExpr, new TextEditGroup(""));
 		}
 
 	}
@@ -163,7 +168,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
 	 * if so removes the flag from flagExpressions
 	 */
-	private void checkReassignment(Assignment assignmentNode) {
+	private void checkReassignment(@NonNull Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
