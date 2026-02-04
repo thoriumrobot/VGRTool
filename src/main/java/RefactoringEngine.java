@@ -49,10 +49,9 @@ public class RefactoringEngine {
 	 * Applies all refactorings in {@value refactorings} to a given source file
 	 * 
 	 * @param cu
-	 *                   The compilation unit to use
+	 *            The compilation unit to use
 	 * @param sourceCode
-	 *                   A string representing the filepath of the source code to
-	 *                   refactor
+	 *            A string representing the filepath of the source code to refactor
 	 */
 	public @NonNull String applyRefactorings(@NonNull CompilationUnit cu, @NonNull String sourceCode) {
 		AST ast = cu.getAST();
