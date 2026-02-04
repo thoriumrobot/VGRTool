@@ -68,10 +68,10 @@ before NullAway can process them.
 
 # Stage One: Annotation
 
-Stage One is where the bulk of the benchmarking occurs. It involves running
-NullAwayAnnotator on the entire NJR-1 dataset in order to prepare it for
-refactoring, as well as to get an accurate count of the number of NullAway
-errors in the original programs, refactoring every program using VGR, and
-finally re-running annotator to get an updated error count. This cycle
-(annotate->refactor->annotate) is completed for each dataset in NJR-1
+Stage One is the largest stage in terms of time consumption and computation. It
+involves running NullAwayAnnotator on the entire NJR-1 dataset in order to
+prepare it for refactoring, as well as to get an accurate count of the number of
+NullAway errors in the original programs, refactoring every program using VGR,
+and finally re-running annotator to get an updated error count. This cycle
+(annotate->refactor->annotate) is completed for each program in NJR-1
 sequentially.
