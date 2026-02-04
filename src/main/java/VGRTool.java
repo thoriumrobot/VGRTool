@@ -90,8 +90,9 @@ public class VGRTool {
 	 *            the refactoring to apply to the file
 	 */
 	@SuppressWarnings("argument") // Supress warnings for passing null values as parameters to
-	// parser.setEnvironment(). Passing null values is explictly defined in the
-	// method documentation as acceptable
+	// parser.setEnvironment() and parser.createAST(). Passing null values is
+	// explictly defined in the
+	// method documentations as acceptable
 	private static void processFile(@NonNull File file, @NonNull String refactoringModule) {
 		try {
 			// Step 3: Read the file content
