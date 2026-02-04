@@ -93,6 +93,9 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
 
+# List of data structures representing the results of a benchmark
+results: list[BenchmarkingResult] = []
+
 # Arguments
 DEBUG = False  # Debug Mode
 MODULE = "All"  # Refactoring Module to use
@@ -179,9 +182,6 @@ def stage_one():
     Runs the full benchmarking routine (Annotate -> Count Errors -> Refactor -> Annotate -> Count Errors) for every dataset in the NJR-1 dataset collection and then summarizes the results.
     """
     datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
-
-    # List of data structures representing the results of a benchmark
-    results: list[BenchmarkingResult] = []
 
     for dataset in datasets_list:
         print(f"Benchmarking {dataset}...")
