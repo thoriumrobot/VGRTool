@@ -18,6 +18,7 @@ import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.*;
 
 /**
  * Program entrypoint class; Runs the refactoring engine on given source code
@@ -72,7 +73,7 @@ public class VGRTool {
 	 * @param directory
 	 *            Filepath of directory to search through (non-recursive)
 	 */
-	private static List<File> getJavaFiles(String directory) throws IOException {
+	private static @NonNull List<File> getJavaFiles(@NonNull String directory) throws IOException {
 		List<File> javaFiles = new ArrayList<>();
 
 		Files.walk(Paths.get(directory)).filter(path -> path.toString().endsWith(".java"))
@@ -88,7 +89,11 @@ public class VGRTool {
 	 * @param refactoringModule
 	 *            the refactoring to apply to the file
 	 */
-	private static void processFile(File file, String refactoringModule) {
+	@SuppressWarnings("argument") // Supress warnings for passing null values as parameters to
+	// parser.setEnvironment() and parser.createAST(). Passing null values is
+	// explictly defined in the
+	// method documentations as acceptable
+	private static void processFile(@NonNull File file, @NonNull String refactoringModule) {
 		try {
 			// Step 3: Read the file content
 			String content = Files.readString(file.toPath());
