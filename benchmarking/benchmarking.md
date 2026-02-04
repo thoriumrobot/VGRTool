@@ -10,7 +10,8 @@ required, i.e. Jar files and the NJR-1 Dataset.
 In order for benchmarking to run, the jar files for all the following
 dependencies must be located in the `JARS_DIR` directory, in their respective
 sub-folder (i.e. `JARS_DIR/errorprone`, `JARS_DIR/nullaway`, and
-`JARS_DIR/annotator`)
+`JARS_DIR/annotator`). If not present, they will be automaticlaly downloaded
+from the Maven Repository.
 
 ## Note: Different versions of the following dependencies may not be compatable. The newest versions of each project that are confirmed to work together are:
 
