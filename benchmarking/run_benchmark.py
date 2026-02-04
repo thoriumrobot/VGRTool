@@ -92,7 +92,9 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
 
-DEBUG = False
+# Arguments
+DEBUG = False  # Debug Mode
+MODULE = "All"  # Refactoring Module to use
 
 benchmark_start_time_string = f"{datetime.now():%Y-%m-%d_%H:%M:%S}"
 
@@ -307,7 +309,7 @@ def stage_one_refactor(dataset: str):
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
     dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
 
-    refactor_cmd: list[str] = ["./gradlew", "run", f"'--args={dataset_path} All'"]
+    refactor_cmd: list[str] = ["./gradlew", "run", f"--args='{dataset_path} {MODULE}'"]
 
     with open(output_file, "w+") as f:
         res = subprocess.run(
@@ -479,8 +481,12 @@ def main():
     argparser.add_argument(
         "--debug", action="store_true", help="Enabling debugging statements."
     )
+    argparser.add_argument(
+        "module", help="The refactoring module to use.", default="All"
+    )
     args = argparser.parse_args()
     DEBUG = args.debug
+    MODULE = args.module
 
     run()
 
