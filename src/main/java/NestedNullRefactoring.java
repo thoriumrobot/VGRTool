@@ -2,7 +2,6 @@ import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.eclipse.text.edits.TextEditGroup;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -33,14 +32,14 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 public class NestedNullRefactoring extends Refactoring {
 	public static final String NAME = "NestedNullRefactoring";
 
-	private final Dictionary<IMethodBinding, @NonNull Expression> applicableMethods;
+	private final Dictionary<IMethodBinding, Expression> applicableMethods;
 
 	public NestedNullRefactoring() {
 		applicableMethods = new Hashtable<>();
 	}
 
 	@Override
-	public boolean isApplicable(@NonNull ASTNode node) {
+	public boolean isApplicable(ASTNode node) {
 		if (node instanceof MethodInvocation invocation) {
 			return isApplicableImpl(invocation);
 		}
@@ -56,7 +55,7 @@ public class NestedNullRefactoring extends Refactoring {
 	 * Returns true iff the provided invocation is of a registered one-line method
 	 * that returns the result of a null check
 	 */
-	private boolean isApplicableImpl(@NonNull MethodInvocation invocation) {
+	private boolean isApplicableImpl(MethodInvocation invocation) {
 		if (applicableMethods.get(invocation.resolveMethodBinding()) != null) {
 			System.out.println("[DEBUG] Invocation of applicable method found");
 			return true;
@@ -68,7 +67,7 @@ public class NestedNullRefactoring extends Refactoring {
 	 * Returns true iff Node is a one-line private method that returns the result of
 	 * a null check
 	 */
-	private boolean isApplicableImpl(@NonNull MethodDeclaration declaration) {
+	private boolean isApplicableImpl(MethodDeclaration declaration) {
 		// getReturnType() is deprecated and replaced by getReturnType2()
 		Type retType = declaration.getReturnType2();
 		boolean returnsBoolean = (retType.isPrimitiveType()
@@ -138,12 +137,12 @@ public class NestedNullRefactoring extends Refactoring {
 	 * Returns true iff the provided expression can be on one side of a refactorable
 	 * null equality check, i.e. it represents a valid variable or constant.
 	 */
-	private boolean isValidOperand(@NonNull Expression operand) {
+	private boolean isValidOperand(Expression operand) {
 		return (operand instanceof SimpleName || operand instanceof FieldAccess || operand instanceof QualifiedName);
 	}
 
 	@Override
-	public void apply(@NonNull ASTNode node, @NonNull ASTRewrite rewriter) {
+	public void apply(ASTNode node, ASTRewrite rewriter) {
 		// Check if Method Invocation is in applicableMethods
 		if (node instanceof MethodInvocation invocation) {
 			replace(node, rewriter, invocation);
@@ -153,7 +152,7 @@ public class NestedNullRefactoring extends Refactoring {
 		}
 	}
 
-	private void replace(@NonNull ASTNode node, @NonNull ASTRewrite rewriter, @NonNull MethodInvocation invocation) {
+	private void replace(ASTNode node, ASTRewrite rewriter, MethodInvocation invocation) {
 		IMethodBinding binding = invocation.resolveMethodBinding();
 		if (binding == null) {
 			return;
