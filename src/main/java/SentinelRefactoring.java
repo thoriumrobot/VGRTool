@@ -140,8 +140,7 @@ public class SentinelRefactoring extends Refactoring {
 	 *            The value assigned to the sentinel when the null_check condition
 	 *            is true
 	 */
-	private boolean isValidSentinel(Assignment sentinel_assignment, Expression null_check,
-			Object newValue) {
+	private boolean isValidSentinel(Assignment sentinel_assignment, Expression null_check, Object newValue) {
 
 		LOGGER.debug("Parsing Sentinel: %s, %s, %s", sentinel_assignment, null_check, newValue);
 
