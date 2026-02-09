@@ -60,11 +60,14 @@ public class SentinelRefactoring extends Refactoring {
 	 */
 	private class Sentinel {
 		/**
-		 * The original assignment statement setting the sentinel's value.
+		 * The original assignment statement setting the sentinel's value. A null value
+		 * indicates the sentinel has not yet been assigned a value
 		 */
 		public @Nullable Assignment sentinel_assignment;
 		/**
-		 * The conditional expression used to decide the value of the sentinel.
+		 * The conditional expression used to decide the value of the sentinel. A null
+		 * value indicates a variable which could become a sentinel, but has not yet had
+		 * a conditional assignemnt.
 		 */
 		public @Nullable InfixExpression null_check;
 		/**
