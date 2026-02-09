@@ -25,7 +25,7 @@ public class RefactoringEngine {
 	 */
 	private final List<Refactoring> refactorings;
 
-	public RefactoringEngine(@NonNull List<String> refactoringNames) {
+	public RefactoringEngine(List<String> refactoringNames) {
 		refactorings = new ArrayList<>();
 
 		for (String name : refactoringNames) {
@@ -53,7 +53,7 @@ public class RefactoringEngine {
 	 * @param sourceCode
 	 *            A string representing the filepath of the source code to refactor
 	 */
-	public @NonNull String applyRefactorings(@NonNull CompilationUnit cu, @NonNull String sourceCode) {
+	public @NonNull String applyRefactorings(CompilationUnit cu, String sourceCode) {
 		AST ast = cu.getAST();
 		ASTRewrite rewriter = ASTRewrite.create(ast);
 
