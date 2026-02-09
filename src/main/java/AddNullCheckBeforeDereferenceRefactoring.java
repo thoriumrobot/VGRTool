@@ -16,6 +16,7 @@ import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.eclipse.text.edits.TextEditGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -173,15 +174,22 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			}
 
 			Expression ternary = validRefactors.get(varName.resolveBinding());
+			if (ternary == null) {
+				continue;
+			}
 
 			AST ast = node.getAST();
 			ParenthesizedExpression pExpression = ast.newParenthesizedExpression();
-			pExpression.setExpression((Expression) ASTNode.copySubtree(ast, ternary));
+			Expression expr = (Expression) ASTNode.copySubtree(ast, ternary);
+			if (expr == null) {
+				continue;
+			}
+			pExpression.setExpression(expr);
 
 			LOGGER.debug("[DEBUG] Replacing Variable: " + varName);
 			LOGGER.debug("[DEBUG] New Value: " + pExpression);
 
-			rewriter.replace(condition, pExpression, null);
+			rewriter.replace(condition, pExpression, new TextEditGroup(""));
 		}
 
 	}
