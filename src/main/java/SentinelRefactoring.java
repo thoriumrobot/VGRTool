@@ -27,7 +27,8 @@ import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.*;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * This class represents a refactoring in which integer variables whose values

@@ -2,7 +2,7 @@ import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.*;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.eclipse.text.edits.TextEditGroup;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
