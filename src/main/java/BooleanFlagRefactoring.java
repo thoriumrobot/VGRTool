@@ -33,7 +33,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * List of variable names identified as boolean flags, along with their
 	 * corresponding initializer expression
 	 */
-	private final Map<IBinding, @NonNull Expression> flagExpressions;
+	private final Map<IBinding, Expression> flagExpressions;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public BooleanFlagRefactoring() {
@@ -42,7 +42,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	@Override
-	public boolean isApplicable(@NonNull ASTNode node) {
+	public boolean isApplicable(ASTNode node) {
 		if (node instanceof VariableDeclarationStatement stmt) {
 			return isApplicable(stmt);
 		} else if (node instanceof IfStatement ifStmt) {
@@ -57,7 +57,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Checks to see if a VariableDeclarationStatement defines a boolean flag that
 	 * represents another variable's nullness
 	 */
-	private boolean isApplicable(@NonNull VariableDeclarationStatement stmt) {
+	private boolean isApplicable(VariableDeclarationStatement stmt) {
 		boolean isBooleanDeclaration = (stmt.getType() instanceof PrimitiveType pType
 				&& pType.getPrimitiveTypeCode() == PrimitiveType.BOOLEAN);
 
@@ -98,7 +98,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Analyzes an IfStatement to see if it contains a check utilizing an identified
 	 * boolean flag
 	 */
-	private boolean isApplicable(@NonNull IfStatement ifStmt) {
+	private boolean isApplicable(IfStatement ifStmt) {
 		List<Expression> exprFragments = Refactoring.getSubExpressions(ifStmt.getExpression());
 		for (Expression expr : exprFragments) {
 			if (expr instanceof InfixExpression infix && isEqualityOperator(infix.getOperator())) {
@@ -117,15 +117,15 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return false;
 	}
 
-	private boolean isFlag(@NonNull SimpleName potentialFlag) {
+	private boolean isFlag(SimpleName potentialFlag) {
 		return flagExpressions.get(potentialFlag.resolveBinding()) != null;
 	}
 
-	private boolean isEqualityOperator(@NonNull Operator op) {
+	private boolean isEqualityOperator(Operator op) {
 		return (op == Operator.NOT_EQUALS || op == Operator.EQUALS);
 	}
 
-	private @Nullable SimpleName getNullComparisonVariable(@NonNull InfixExpression infix) {
+	private @Nullable SimpleName getNullComparisonVariable(InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
 		Expression rightOperand = infix.getRightOperand();
 		if (leftOperand instanceof SimpleName varName && rightOperand instanceof NullLiteral) {
@@ -138,7 +138,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	}
 
 	@Override
-	public void apply(@NonNull ASTNode node, @NonNull ASTRewrite rewriter) {
+	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (!(node instanceof IfStatement ifStmt)) {
 			return;
 		}
@@ -154,7 +154,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 	}
 
-	private void apply(@NonNull ASTRewrite rewriter, @Nullable SimpleName flagName) {
+	private void apply(ASTRewrite rewriter, @Nullable SimpleName flagName) {
 		if (flagName == null || !isFlag(flagName)) {
 			return;
 		}
@@ -169,7 +169,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 	 * Checks Assignment node to see if it re-assigns an existing boolean flag, and
 	 * if so removes the flag from flagExpressions
 	 */
-	private void checkReassignment(@NonNull Assignment assignmentNode) {
+	private void checkReassignment(Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
