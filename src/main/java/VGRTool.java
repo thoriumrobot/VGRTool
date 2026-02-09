@@ -73,7 +73,7 @@ public class VGRTool {
 	 * @param directory
 	 *            Filepath of directory to search through (non-recursive)
 	 */
-	private static @NonNull List<File> getJavaFiles(@NonNull String directory) throws IOException {
+	private static @NonNull List<File> getJavaFiles(String directory) throws IOException {
 		List<File> javaFiles = new ArrayList<>();
 
 		Files.walk(Paths.get(directory)).filter(path -> path.toString().endsWith(".java"))
@@ -93,7 +93,7 @@ public class VGRTool {
 	// parser.setEnvironment() and parser.createAST(). Passing null values is
 	// explictly defined in the
 	// method documentations as acceptable
-	private static void processFile(@NonNull File file, @NonNull String refactoringModule) {
+	private static void processFile(File file, String refactoringModule) {
 		try {
 			// Step 3: Read the file content
 			String content = Files.readString(file.toPath());
