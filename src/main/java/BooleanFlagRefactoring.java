@@ -2,7 +2,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
