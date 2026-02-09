@@ -19,7 +19,6 @@ import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.text.edits.TextEditGroup;
 
 /**
  * This class represents a refactoring in which boolean flags are replaced with
@@ -68,8 +67,9 @@ public class BooleanFlagRefactoring extends Refactoring {
 		AST ast = stmt.getAST();
 
 		// Search through all declared variables in declaration node for a booleanflag
-		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
-		// valid.
+		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees it returns
+		// a live
+		// list of type VariableDeclarationFragment
 		List<VariableDeclarationFragment> fragments = (List<VariableDeclarationFragment>) stmt.fragments();
 		for (VariableDeclarationFragment frag : fragments) {
 			Expression varInitializer = frag.getInitializer();
@@ -153,13 +153,17 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 	}
 
+	@SuppressWarnings("nullness:argument") // Supress warnings for passing a null values as the third parameter to
+	// rewriter.replace(). The parameter is used to collect a list of edits that are
+	// performed. Passing null is documented as acceptable if we do need to collect
+	// the text edits
 	private void apply(ASTRewrite rewriter, @Nullable SimpleName flagName) {
 		if (flagName == null || !isFlag(flagName)) {
 			return;
 		}
 		Expression newExpr = flagExpressions.get(flagName.resolveBinding());
 		if (newExpr != null) {
-			rewriter.replace(flagName, newExpr, new TextEditGroup(""));
+			rewriter.replace(flagName, newExpr, null);
 		}
 
 	}
