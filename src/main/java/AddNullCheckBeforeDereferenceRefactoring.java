@@ -19,7 +19,6 @@ import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
 import org.eclipse.text.edits.TextEditGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * A refactoring module that replaces checks on variables whose nullness is
@@ -53,7 +52,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	 * key, ensuring global uniqueness. Two variables who have the same name but
 	 * have different scopes will have different IBinding instances.
 	 */
-	private final Map<@NonNull IBinding, @NonNull Expression> validRefactors;
+	private final Map<IBinding, Expression> validRefactors;
 
 	/** Default constructor (for RefactoringEngine integration) */
 	public AddNullCheckBeforeDereferenceRefactoring() {
@@ -62,7 +61,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	}
 
 	@Override
-	public boolean isApplicable(@NonNull ASTNode node) {
+	public boolean isApplicable(ASTNode node) {
 		if (node instanceof VariableDeclarationFragment varFrag) {
 			return isApplicable(varFrag);
 		}
@@ -79,7 +78,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		return false;
 	}
 
-	private boolean isApplicable(@NonNull VariableDeclarationFragment var) {
+	private boolean isApplicable(VariableDeclarationFragment var) {
 		Expression initializer = var.getInitializer();
 		if (initializer == null)
 			return false;
@@ -113,7 +112,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 		return false;
 	}
 
-	private boolean isApplicable(@NonNull IfStatement ifStmt) {
+	private boolean isApplicable(IfStatement ifStmt) {
 		Expression ifStmtCondition = ifStmt.getExpression();
 		LOGGER.debug("Analyzing if-statement: %s", ifStmtCondition);
 		List<Expression> conditionFragments = Refactoring.getSubExpressions(ifStmtCondition);
@@ -147,7 +146,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	}
 
 	@Override
-	public void apply(@NonNull ASTNode node, @NonNull ASTRewrite rewriter) {
+	public void apply(ASTNode node, ASTRewrite rewriter) {
 		if (!(node instanceof IfStatement ifStmt)) {
 			return;
 		}
@@ -199,7 +198,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 	 * Checks Assignment node to see if it re-assigns an existing valid refactoring,
 	 * and if so removes it from validRefactors
 	 */
-	private void verifyRefactors(@NonNull Assignment assignmentNode) {
+	private void verifyRefactors(Assignment assignmentNode) {
 		Expression lhs = assignmentNode.getLeftHandSide();
 		if (!(lhs instanceof SimpleName varName)) {
 			return;
