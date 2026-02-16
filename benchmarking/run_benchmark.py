@@ -310,7 +310,13 @@ def stage_one_refactor(dataset: str):
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
     dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
 
-    refactor_cmd: list[str] = ["./gradlew", "run", f"--args='{dataset_path} {MODULE}'"]
+    debugArg = "--info" if DEBUG else ""
+
+    refactor_cmd: list[str] = [
+        "./gradlew",
+        "run",
+        f"{debugArg} --args='{dataset_path} {MODULE}'",
+    ]
 
     with open(output_file, "w+") as f:
         res = subprocess.run(
@@ -515,6 +521,7 @@ def run():
 def main():
     """Main entry point of the script."""
     global DEBUG
+    global MODULE
     argparser = argparse.ArgumentParser(description="Runs benchmark.")
     argparser.add_argument(
         "--debug", action="store_true", help="Enabling debugging statements."
