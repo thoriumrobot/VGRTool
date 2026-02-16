@@ -18,6 +18,7 @@ import org.eclipse.jdt.core.dom.FieldAccess;
 import org.eclipse.jdt.core.dom.MethodInvocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * Program entrypoint class; Runs the refactoring engine on given source code
@@ -72,7 +73,7 @@ public class VGRTool {
 	 * @param directory
 	 *            Filepath of directory to search through (non-recursive)
 	 */
-	private static List<File> getJavaFiles(String directory) throws IOException {
+	private static @NonNull List<File> getJavaFiles(String directory) throws IOException {
 		List<File> javaFiles = new ArrayList<>();
 
 		Files.walk(Paths.get(directory)).filter(path -> path.toString().endsWith(".java"))

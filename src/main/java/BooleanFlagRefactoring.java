@@ -2,6 +2,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Assignment;
@@ -66,7 +67,13 @@ public class BooleanFlagRefactoring extends Refactoring {
 		AST ast = stmt.getAST();
 
 		// Search through all declared variables in declaration node for a booleanflag
-		for (VariableDeclarationFragment frag : (List<VariableDeclarationFragment>) stmt.fragments()) {
+		// Eclipse JDT API guarantees fragments() returns a live
+		// List<VariableDeclarationFragment>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/VariableDeclarationStatement.html#fragments()
+		@SuppressWarnings("unchecked")
+		List<VariableDeclarationFragment> fragments = (List<VariableDeclarationFragment>) stmt.fragments();
+		for (VariableDeclarationFragment frag : fragments) {
 			Expression varInitializer = frag.getInitializer();
 			if (varInitializer == null) {
 				continue;
@@ -119,7 +126,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 		return (op == Operator.NOT_EQUALS || op == Operator.EQUALS);
 	}
 
-	private SimpleName getNullComparisonVariable(InfixExpression infix) {
+	private @Nullable SimpleName getNullComparisonVariable(InfixExpression infix) {
 		Expression leftOperand = infix.getLeftOperand();
 		Expression rightOperand = infix.getRightOperand();
 		if (leftOperand instanceof SimpleName varName && rightOperand instanceof NullLiteral) {
@@ -148,7 +155,7 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 	}
 
-	private void apply(ASTRewrite rewriter, SimpleName flagName) {
+	private void apply(ASTRewrite rewriter, @Nullable SimpleName flagName) {
 		if (flagName == null || !isFlag(flagName)) {
 			return;
 		}

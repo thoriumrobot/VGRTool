@@ -2,7 +2,6 @@ import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
-
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
@@ -90,7 +89,16 @@ public class NestedNullRefactoring extends Refactoring {
 		}
 
 		Block body = declaration.getBody();
-		List<Statement> stmts = body.statements();
+		if (body == null) {
+			return false;
+		}
+
+		// Eclipse JDT API guarantees statements() returns a live
+		// List<Statement>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/Block.html#statements()
+		@SuppressWarnings("unchecked")
+		List<Statement> stmts = (List<Statement>) body.statements();
 
 		boolean isOneLine = stmts.size() == 1;
 		if (!isOneLine) {
@@ -104,7 +112,7 @@ public class NestedNullRefactoring extends Refactoring {
 
 		// Checks that the return statement is of a single equality check
 		Expression retExpr = ((ReturnStatement) stmt).getExpression();
-		if (!(retExpr instanceof InfixExpression)) {
+		if (retExpr == null || !(retExpr instanceof InfixExpression)) {
 			return false;
 		}
 
@@ -118,7 +126,11 @@ public class NestedNullRefactoring extends Refactoring {
 			if ((isValidOperand(leftOperand) && rightOperand instanceof NullLiteral)
 					|| (isValidOperand(rightOperand) && leftOperand instanceof NullLiteral)) {
 				System.out.println("[DEBUG] Found one line null check method: " + declaration.getName());
-				applicableMethods.put((declaration.resolveBinding()), retExpr);
+				IMethodBinding binding = declaration.resolveBinding();
+				if (binding == null) {
+					return false;
+				}
+				applicableMethods.put((binding), retExpr);
 			}
 		}
 		return false;
@@ -144,7 +156,12 @@ public class NestedNullRefactoring extends Refactoring {
 	}
 
 	private void replace(ASTNode node, ASTRewrite rewriter, MethodInvocation invocation) {
-		Expression expr = (applicableMethods.get((invocation.resolveMethodBinding())));
+		IMethodBinding binding = invocation.resolveMethodBinding();
+		if (binding == null) {
+			return;
+		}
+
+		Expression expr = (applicableMethods.get(binding));
 		if (expr == null) {
 			System.err.println("Cannot find applicable method for refactoring. ");
 			return;
