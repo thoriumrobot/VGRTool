@@ -26,6 +26,8 @@ import org.eclipse.jdt.core.dom.VariableDeclarationStatement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * This class represents a refactoring in which integer variables whose values
@@ -57,19 +59,24 @@ public class SentinelRefactoring extends Refactoring {
 	 */
 	private class Sentinel {
 		/**
-		 * The original assignment statement setting the sentinel's value.
+		 * The original assignment statement setting the sentinel's value. A null value
+		 * indicates the sentinel has not yet been assigned a value
 		 */
-		public Assignment sentinel_assignment;
+		public @Nullable Assignment sentinel_assignment;
 		/**
-		 * The conditional expression used to decide the value of the sentinel.
+		 * The conditional expression used to decide the value of the sentinel. A null
+		 * value indicates a variable which could become a sentinel, but has not yet had
+		 * a conditional assignemnt.
 		 */
-		public InfixExpression null_check;
+		public @Nullable InfixExpression null_check;
 		/**
-		 * The last value assigned to the sentinel; Used for validity tracking.
+		 * The last value assigned to the sentinel; Used for validity tracking. A null
+		 * value represents an unknown previous value.
 		 */
-		public Object lastValue;
+		public @Nullable Object lastValue;
 
-		public Sentinel(Assignment sentinel_assignment, InfixExpression null_check, Object lastValue) {
+		public Sentinel(@Nullable Assignment sentinel_assignment, @Nullable InfixExpression null_check,
+				@Nullable Object lastValue) {
 			this.sentinel_assignment = sentinel_assignment;
 			this.null_check = null_check;
 			this.lastValue = lastValue;
@@ -110,8 +117,11 @@ public class SentinelRefactoring extends Refactoring {
 	 * Detects sentinels which are shadowed by new local variables and removes them.
 	 */
 	private void detectShadowing(VariableDeclarationStatement declaration) {
-		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
-		// valid.
+		// Eclipse JDT API guarantees fragments() returns a live
+		// List<VariableDeclarationFragment>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/VariableDeclarationStatement.html#fragments()
+		@SuppressWarnings("unchecked")
 		List<VariableDeclarationFragment> fragments = declaration.fragments();
 		for (VariableDeclarationFragment fragment : fragments) {
 			SimpleName varName = fragment.getName();
@@ -180,7 +190,9 @@ public class SentinelRefactoring extends Refactoring {
 			for (Map.Entry<IBinding, Sentinel> entry : sentinelCandidates.entrySet()) {
 				IBinding key = entry.getKey();
 				Sentinel sentinel = sentinelCandidates.get(key);
-				sentinel.lastValue = null;
+				if (sentinel != null) {
+					sentinel.lastValue = null;
+				}
 			}
 		}
 	}
@@ -265,7 +277,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param expr
 	 *            the Expression to parse
 	 */
-	private boolean isEqualityCheck(InfixExpression.Operator operator) {
+	private boolean isEqualityCheck(@Nullable Operator operator) {
 		return ((operator == InfixExpression.Operator.NOT_EQUALS || operator == InfixExpression.Operator.EQUALS));
 	}
 
@@ -300,8 +312,11 @@ public class SentinelRefactoring extends Refactoring {
 			return;
 		}
 
-		@SuppressWarnings("unchecked") // Silence type warnings; statements() documentation guarantees type is
-		// valid.
+		// Eclipse JDT API guarantees statements() returns a live
+		// List<Statement>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/Block.html#statements()
+		@SuppressWarnings("unchecked")
 		List<Statement> stmts = thenStmt.statements();
 
 		// Checks that there is only one line in the ifStatement.
@@ -378,6 +393,9 @@ public class SentinelRefactoring extends Refactoring {
 			Expression sent_val = sentinel_assignment.getRightHandSide();
 
 			InfixExpression null_check = sentinel.null_check;
+			if (null_check == null) {
+				continue;
+			}
 			InfixExpression.Operator null_check_op = null_check.getOperator();
 
 			AST ast = node.getAST();
@@ -393,19 +411,19 @@ public class SentinelRefactoring extends Refactoring {
 	/**
 	 * Returns the opposite of the given InfixExpression equality operator.
 	 */
-	private InfixExpression.Operator reverseOperator(InfixExpression.Operator op) {
+	private @NonNull Operator reverseOperator(Operator op) {
 		if (op == InfixExpression.Operator.EQUALS) {
 			return InfixExpression.Operator.NOT_EQUALS;
 		} else if (op == InfixExpression.Operator.NOT_EQUALS) {
 			return InfixExpression.Operator.EQUALS;
 		}
-		return null;
+		return op;
 	}
 
 	/**
 	 * Returns the conditonal operator to use in a refactored null check.
 	 */
-	public InfixExpression.Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
+	public @NonNull Operator getRefactoredOperator(Operator null_check_op, Operator sentinel_check_op,
 			boolean originalValueMatch) {
 		Operator refactoredOperator = originalValueMatch ? null_check_op : reverseOperator(null_check_op);
 
@@ -420,7 +438,7 @@ public class SentinelRefactoring extends Refactoring {
 	 * @param exprs
 	 *            A list of expressions to parse
 	 */
-	public InfixExpression parseNullCheck(List<Expression> exprs) {
+	public @Nullable InfixExpression parseNullCheck(List<Expression> exprs) {
 		for (Expression expr : exprs) {
 			if (expr instanceof InfixExpression null_check_candidate) {
 				Expression leftOperand = null_check_candidate.getLeftOperand();

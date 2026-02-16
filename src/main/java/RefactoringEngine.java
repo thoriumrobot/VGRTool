@@ -3,6 +3,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.apache.logging.log4j.LogManager;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
@@ -54,7 +55,7 @@ public class RefactoringEngine {
 	 * @param sourceCode
 	 *            A string representing the filepath of the source code to refactor
 	 */
-	public String applyRefactorings(CompilationUnit cu, String sourceCode) {
+	public @NonNull String applyRefactorings(CompilationUnit cu, String sourceCode) {
 		AST ast = cu.getAST();
 		ASTRewrite rewriter = ASTRewrite.create(ast);
 
@@ -73,6 +74,7 @@ public class RefactoringEngine {
 		}
 
 		Document document = new Document(sourceCode);
+
 		TextEdit edits = rewriter.rewriteAST(document, null);
 		try {
 			edits.apply(document);

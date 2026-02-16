@@ -1,0 +1,11 @@
+package org.eclipse.jdt.core.dom;
+
+import org.checkerframework.checker.nullness.qual.Nullable;
+import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.eclipse.jdt.core.dom.ASTParser;
+
+public class ASTParser extends Object {
+        public void setEnvironment(String[] classpathEntries, String @Nullable [] sourcepathEntries, String @Nullable [] encodings, boolean includeRunningVMBootclasspath);
+        public ASTNode createAST(@Nullable org.eclipse.core.runtime.IProgressMonitor monitor);
+
+}

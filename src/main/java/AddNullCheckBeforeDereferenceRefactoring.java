@@ -173,10 +173,17 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			}
 
 			Expression ternary = validRefactors.get(varName.resolveBinding());
+			if (ternary == null) {
+				continue;
+			}
 
 			AST ast = node.getAST();
 			ParenthesizedExpression pExpression = ast.newParenthesizedExpression();
-			pExpression.setExpression((Expression) ASTNode.copySubtree(ast, ternary));
+			Expression expr = (Expression) ASTNode.copySubtree(ast, ternary);
+			if (expr == null) {
+				continue;
+			}
+			pExpression.setExpression(expr);
 
 			LOGGER.debug("[DEBUG] Replacing Variable: " + varName);
 			LOGGER.debug("[DEBUG] New Value: " + pExpression);
