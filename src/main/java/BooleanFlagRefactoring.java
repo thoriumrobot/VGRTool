@@ -67,9 +67,11 @@ public class BooleanFlagRefactoring extends Refactoring {
 		AST ast = stmt.getAST();
 
 		// Search through all declared variables in declaration node for a booleanflag
-		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees it returns
-		// a live
-		// list of type VariableDeclarationFragment
+		// Eclipse JDT API guarantees fragments() returns a live
+		// List<VariableDeclarationFragment>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/VariableDeclarationStatement.html#fragments()
+		@SuppressWarnings("unchecked")
 		List<VariableDeclarationFragment> fragments = (List<VariableDeclarationFragment>) stmt.fragments();
 		for (VariableDeclarationFragment frag : fragments) {
 			Expression varInitializer = frag.getInitializer();

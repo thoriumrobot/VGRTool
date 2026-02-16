@@ -93,7 +93,11 @@ public class NestedNullRefactoring extends Refactoring {
 			return false;
 		}
 
-		@SuppressWarnings("unchecked") // Silence type warnings; statements() documentation guarantees type is valid.
+		// Eclipse JDT API guarantees statements() returns a live
+		// List<Statement>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/Block.html#statements()
+		@SuppressWarnings("unchecked")
 		List<Statement> stmts = (List<Statement>) body.statements();
 
 		boolean isOneLine = stmts.size() == 1;

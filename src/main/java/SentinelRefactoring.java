@@ -117,8 +117,11 @@ public class SentinelRefactoring extends Refactoring {
 	 * Detects sentinels which are shadowed by new local variables and removes them.
 	 */
 	private void detectShadowing(VariableDeclarationStatement declaration) {
-		@SuppressWarnings("unchecked") // Silence type warnings; fragments() documentation guarantees type is
-		// valid.
+		// Eclipse JDT API guarantees fragments() returns a live
+		// List<VariableDeclarationFragment>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/VariableDeclarationStatement.html#fragments()
+		@SuppressWarnings("unchecked")
 		List<VariableDeclarationFragment> fragments = declaration.fragments();
 		for (VariableDeclarationFragment fragment : fragments) {
 			SimpleName varName = fragment.getName();
@@ -309,8 +312,11 @@ public class SentinelRefactoring extends Refactoring {
 			return;
 		}
 
-		@SuppressWarnings("unchecked") // Silence type warnings; statements() documentation guarantees type is
-		// valid.
+		// Eclipse JDT API guarantees statements() returns a live
+		// List<Statement>
+		// See
+		// https://help.eclipse.org/latest/topic/org.eclipse.jdt.doc.isv/reference/api/org/eclipse/jdt/core/dom/Block.html#statements()
+		@SuppressWarnings("unchecked")
 		List<Statement> stmts = thenStmt.statements();
 
 		// Checks that there is only one line in the ifStatement.
