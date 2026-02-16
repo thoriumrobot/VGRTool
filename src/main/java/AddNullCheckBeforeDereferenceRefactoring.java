@@ -16,7 +16,6 @@ import org.eclipse.jdt.core.dom.PrefixExpression;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.VariableDeclarationFragment;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.text.edits.TextEditGroup;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -189,7 +188,7 @@ public class AddNullCheckBeforeDereferenceRefactoring extends Refactoring {
 			LOGGER.debug("[DEBUG] Replacing Variable: " + varName);
 			LOGGER.debug("[DEBUG] New Value: " + pExpression);
 
-			rewriter.replace(condition, pExpression, new TextEditGroup(""));
+			rewriter.replace(condition, pExpression, null);
 		}
 
 	}

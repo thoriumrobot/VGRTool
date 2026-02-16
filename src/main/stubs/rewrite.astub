@@ -1,0 +1,9 @@
+package org.eclipse.jdt.core.dom.rewrite;
+
+import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+public class ASTRewrite extends Object {
+        public org.eclipse.text.edits.TextEdit rewriteAST(org.eclipse.jface.text.IDocument document, @Nullable Map options) throws JavaModelException, IllegalArgumentException;
+        public final void replace(ASTNode node, ASTNode replacement, @Nullable org.eclipse.text.edits.TextEditGroup editGroup);
+}

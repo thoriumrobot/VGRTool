@@ -2,7 +2,6 @@ import java.lang.reflect.Modifier;
 import java.util.Dictionary;
 import java.util.Hashtable;
 import java.util.List;
-import org.eclipse.text.edits.TextEditGroup;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.Block;
@@ -172,7 +171,7 @@ public class NestedNullRefactoring extends Refactoring {
 		pExpr.setExpression(copiedExpression);
 
 		System.out.println("Refactoring " + node + "\n\tReplacing \n\t" + invocation + "\n\tWith \n\t" + pExpr);
-		rewriter.replace(invocation, pExpr, new TextEditGroup(""));
+		rewriter.replace(invocation, pExpr, null);
 
 	}
 

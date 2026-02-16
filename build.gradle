@@ -62,6 +62,9 @@ checkerFramework {
 checkers = [
 	"org.checkerframework.checker.nullness.NullnessChecker",
 ]
+extraJavacArgs = [
+"-Astubs=$projectDir/src/main/stubs"
+]
 }
 
 spotless {

@@ -153,10 +153,6 @@ public class BooleanFlagRefactoring extends Refactoring {
 		}
 	}
 
-	@SuppressWarnings("nullness:argument") // Supress warnings for passing a null values as the third parameter to
-	// rewriter.replace(). The parameter is used to collect a list of edits that are
-	// performed. Passing null is documented as acceptable if we do need to collect
-	// the text edits
 	private void apply(ASTRewrite rewriter, @Nullable SimpleName flagName) {
 		if (flagName == null || !isFlag(flagName)) {
 			return;

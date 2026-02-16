@@ -35,10 +35,6 @@ public class TestingEngine {
 		runTest(input, expectedOutput, new RefactoringEngine(Collections.singletonList(refactoring)));
 	}
 
-	@SuppressWarnings("argument") // Supress warnings for passing null values as parameters to
-	// parser.setEnvironment() and parser.createAST(). Passing null values is
-	// explictly defined in the
-	// method documentations as acceptable
 	private static void runTest(String input, String expectedOutput, RefactoringEngine engine) {
 		// Set parser source code
 		parser.setSource(input.toCharArray());

@@ -18,7 +18,6 @@ import org.eclipse.jdt.core.dom.InfixExpression.Operator;
 import org.eclipse.jdt.core.dom.NullLiteral;
 import org.eclipse.jdt.core.dom.SimpleName;
 import org.eclipse.jdt.core.dom.rewrite.ASTRewrite;
-import org.eclipse.text.edits.TextEditGroup;
 import org.eclipse.jdt.core.dom.Statement;
 import org.eclipse.jdt.core.dom.SuperMethodInvocation;
 import org.eclipse.jdt.core.dom.VariableDeclaration;
@@ -398,7 +397,7 @@ public class SentinelRefactoring extends Refactoring {
 			boolean originalValueMatch = sent_val.resolveConstantExpressionValue()
 					.equals(cond_val.resolveConstantExpressionValue());
 			replacement.setOperator(getRefactoredOperator(null_check_op, cond_op, originalValueMatch));
-			rewriter.replace(expression, replacement, new TextEditGroup(""));
+			rewriter.replace(expression, replacement, null);
 
 		}
 	}

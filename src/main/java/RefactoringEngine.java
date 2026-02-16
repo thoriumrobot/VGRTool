@@ -4,7 +4,6 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.apache.logging.log4j.LogManager;
-import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.dom.AST;
 import org.eclipse.jdt.core.dom.ASTNode;
 import org.eclipse.jdt.core.dom.ASTVisitor;
@@ -72,8 +71,8 @@ public class RefactoringEngine {
 		}
 
 		Document document = new Document(sourceCode);
-		// JavaCore.getOptions() is the default set of options used by rewriteAST()
-		TextEdit edits = rewriter.rewriteAST(document, JavaCore.getOptions());
+
+		TextEdit edits = rewriter.rewriteAST(document, null);
 		try {
 			edits.apply(document);
 		} catch (MalformedTreeException | org.eclipse.jface.text.BadLocationException e) {
