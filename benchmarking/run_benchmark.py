@@ -399,11 +399,19 @@ def stage_two():
         .astype("Float64")
         .replace([float("inf"), -float("inf")], pd.NA)
     )
-    avg_percent_reduction = benchmark_results["error_reduction_percent"].dropna().mean()
+
+    # Weighted percent reduction across all benchmarks
+    total_initial_errors = benchmark_results["initial_error_count"].sum()
+    total_errors_reduced = benchmark_results["error_reduction"].sum()
+    weighted_percent_reduction = (
+        (total_errors_reduced / total_initial_errors) * 100
+        if total_initial_errors != 0
+        else 0
+    )
 
     print("SUMMARY OF RESULTS:")
     print(f"AVERAGE ERROR REDUCTION: {avg_diff}")
-    print(f"AVERAGE ERROR REDUCTION (PERCENT): {avg_percent_reduction}")
+    print(f"WEIGHTED ERROR REDUCTION (PERCENT): {weighted_percent_reduction:.2f}%")
     print(
         f"BENCHMARKS WITH LARGEST PERCENT REDUCTION): \n{benchmark_results.sort_values(by='error_reduction_percent', ascending=False).head(10)}"
     )
