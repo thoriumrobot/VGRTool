@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+import pandas as pd
 from typing import TypedDict
 
 
@@ -91,6 +92,9 @@ ERROR_PRONE_EXPORTS = [
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
     "-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
 ]
+
+# List of data structures representing the results of a benchmark
+results: list[BenchmarkingResult] = []
 
 # Arguments
 DEBUG = False  # Debug Mode
@@ -178,9 +182,6 @@ def stage_one():
     Runs the full benchmarking routine (Annotate -> Count Errors -> Refactor -> Annotate -> Count Errors) for every dataset in the NJR-1 dataset collection and then summarizes the results.
     """
     datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
-
-    # List of data structures representing the results of a benchmark
-    results: list[BenchmarkingResult] = []
 
     for dataset in datasets_list:
         print(f"Benchmarking {dataset}...")
@@ -309,7 +310,13 @@ def stage_one_refactor(dataset: str):
     output_file = f"{OUTPUT_DIR}/{dataset}/refactoring.txt"
     dataset_path = f"{DATASETS_REFACTORED_DIR}/{dataset}"
 
-    refactor_cmd: list[str] = ["./gradlew", "run", f"--args='{dataset_path} {MODULE}'"]
+    debugArg = "--info" if DEBUG else ""
+
+    refactor_cmd: list[str] = [
+        "./gradlew",
+        "run",
+        f"{debugArg} --args='{dataset_path} {MODULE}'",
+    ]
 
     with open(output_file, "w+") as f:
         res = subprocess.run(
@@ -365,6 +372,50 @@ def stage_one_count_errors(dataset: str):
     if DEBUG:
         print(f"Number of errors found for dataset {dataset}: {error_count}")
     return error_count
+
+
+def stage_two():
+    print("Summarizing results...:")
+
+    benchmark_results = pd.DataFrame(results)
+
+    benchmark_results["error_reduction"] = (
+        benchmark_results["initial_error_count"]
+        - benchmark_results["refactored_error_count"]
+    )
+    avg_diff = benchmark_results["error_reduction"].mean()
+
+    benchmark_results["error_reduction_percent"] = benchmark_results.apply(
+        lambda row: (
+            (row["error_reduction"] / row["initial_error_count"]) * 100
+            if row["initial_error_count"] != 0
+            else 0
+        ),
+        axis=1,
+    )
+
+    benchmark_results["error_reduction_percent"] = (
+        benchmark_results["error_reduction_percent"]
+        .astype("Float64")
+        .replace([float("inf"), -float("inf")], pd.NA)
+    )
+
+    # Weighted percent reduction across all benchmarks
+    total_initial_errors = benchmark_results["initial_error_count"].sum()
+    total_errors_reduced = benchmark_results["error_reduction"].sum()
+    weighted_percent_reduction = (
+        (total_errors_reduced / total_initial_errors) * 100
+        if total_initial_errors != 0
+        else 0
+    )
+
+    print("SUMMARY OF RESULTS:")
+    print(f"AVERAGE ERROR REDUCTION: {avg_diff}")
+    print(f"WEIGHTED ERROR REDUCTION (PERCENT): {weighted_percent_reduction:.2f}%")
+    print(
+        f"BENCHMARKS WITH LARGEST PERCENT REDUCTION): \n{benchmark_results.sort_values(by='error_reduction_percent', ascending=False).head(10)}"
+    )
+    benchmark_results.to_csv(f"{OUTPUT_DIR}/summary.csv")
 
 
 def get_build_cmd(dataset: str):
@@ -472,11 +523,13 @@ def run():
     """
     stage_zero()
     stage_one()
+    stage_two()
 
 
 def main():
     """Main entry point of the script."""
     global DEBUG
+    global MODULE
     argparser = argparse.ArgumentParser(description="Runs benchmark.")
     argparser.add_argument(
         "--debug", action="store_true", help="Enabling debugging statements."

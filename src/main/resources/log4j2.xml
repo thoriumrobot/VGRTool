@@ -29,7 +29,7 @@
 
     <Loggers>
         <!-- All level "debug" and above logs sent to default logger are printed to the Console -->
-        <Root level="info">
+        <Root level="debug">
             <AppenderRef ref="Console"/>
         </Root>
 
