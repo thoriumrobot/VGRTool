@@ -73,8 +73,8 @@ public class VGRTool implements Runnable {
 			// Step 2: Process each Java file using the selected refactoring module(s)
 			for (File file : javaFiles) {
 				LOGGER.debug("Processing file: {}", file.getPath());
-				List<Refactoring> = processRefactorings(refactoringModules);
-				processFile(file, );
+				List<Refactoring> selectedRefactorings = processRefactorings(refactoringModules);
+				processFile(file, selectedRefactorings);
 			}
 
 			LOGGER.info("Refactoring completed successfully!");
