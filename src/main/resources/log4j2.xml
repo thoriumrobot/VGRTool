@@ -9,8 +9,8 @@
         <!-- The new file will be named according to fileName. -->
         <!-- The rolled over file will be named according to filePattern: appended with the date and time of the rollover -->
         <RollingFile name="SearchResults"
-                 fileName="SearchResults/searchResults.csv"
-                 filePattern="SearchResults/searchResults-%d{yyyy-MM-dd-HH-mm-ss}.csv"
+                 fileName="searchResults/searchResults.csv"
+                 filePattern="searchResults/searchResults-%d{yyyy-MM-dd-HH-mm-ss}.csv"
                  createOnDemand="true"
                  append="true">
 
