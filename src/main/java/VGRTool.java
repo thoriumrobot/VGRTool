@@ -4,7 +4,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -96,26 +95,25 @@ public class VGRTool implements Runnable {
 	 *            A List<String> of refactoringModule names to parse
 	 **/
 	private static List<Refactoring> processRefactorings(List<String> refactoringModuleNames) {
-		// LinkedHashSet to preserve order
-		Set<Refactoring> refactoringSet = new LinkedHashSet<>();
+		List<Refactoring> refactorings = new ArrayList<>();
 		for (String name : refactoringModuleNames) {
 			switch (name) {
 				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
-					refactoringSet.add(new AddNullCheckBeforeDereferenceRefactoring());
-				case BooleanFlagRefactoring.NAME -> refactoringSet.add(new BooleanFlagRefactoring());
-				case SentinelRefactoring.NAME -> refactoringSet.add(new SentinelRefactoring());
-				case NestedNullRefactoring.NAME -> refactoringSet.add(new NestedNullRefactoring());
-				case "All" -> refactoringSet.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(),
+					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
+				case BooleanFlagRefactoring.NAME -> refactorings.add(new BooleanFlagRefactoring());
+				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
+				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
+				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(),
 						new BooleanFlagRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
 				// Should already be caught by Picocli
 				default -> throw new IllegalArgumentException("Unknown refactoring module: " + name);
 			}
 		}
 
-		if (refactoringSet.isEmpty()) {
+		if (refactorings.isEmpty()) {
 			throw new IllegalArgumentException("No valid refactorings specified");
 		}
-		return new ArrayList<>(refactoringSet);
+		return refactorings;
 	}
 
 	/**
