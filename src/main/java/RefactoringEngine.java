@@ -1,5 +1,3 @@
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
@@ -26,26 +24,11 @@ public class RefactoringEngine {
 	 */
 	private final List<Refactoring> refactorings;
 
-	public RefactoringEngine(List<String> refactoringNames) {
-		refactorings = new ArrayList<>();
-
-		for (String name : refactoringNames) {
-			switch (name) {
-				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
-					refactorings.add(new AddNullCheckBeforeDereferenceRefactoring());
-				case BooleanFlagRefactoring.NAME -> refactorings.add(new BooleanFlagRefactoring());
-				case SentinelRefactoring.NAME -> refactorings.add(new SentinelRefactoring());
-				case NestedNullRefactoring.NAME -> refactorings.add(new NestedNullRefactoring());
-				case "All" -> refactorings.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(),
-						new BooleanFlagRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
-				default -> System.err.println("Unknown refactoring: " + name);
-			}
-
-			if (refactorings.isEmpty()) {
-				System.err.println("No valid refactorings specified. Exiting.");
-				System.exit(1);
-			}
+	public RefactoringEngine(List<Refactoring> refactorings) {
+		if (refactorings.isEmpty()) {
+			throw new IllegalArgumentException("No valid refactorings specified");
 		}
+		this.refactorings = refactorings;
 	}
 
 	/**
