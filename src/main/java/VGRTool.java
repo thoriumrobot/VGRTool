@@ -3,7 +3,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,51 +21,95 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+import picocli.CommandLine;
+import picocli.CommandLine.*;
+
 /**
  * Program entrypoint class; Runs the refactoring engine on given source code
  */
-public class VGRTool {
+@Command(name = "VGRTool", mixinStandardHelpOptions = true, version = "0.1", description = "Program entrypoint class; Runs the refactoring engine on given source code")
+public class VGRTool implements Runnable {
 
 	private static final Logger LOGGER = LogManager.getLogger();
+
+	// List of valid refactoring module names for Picocli
+	static class ValidRefactoringModules extends ArrayList<String> {
+		ValidRefactoringModules() {
+			super(List.of(AddNullCheckBeforeDereferenceRefactoring.NAME, BooleanFlagRefactoring.NAME,
+					SentinelRefactoring.NAME, NestedNullRefactoring.NAME, "All"));
+		}
+	}
+
+	// Picocli automatically assigns values to arguments during runtime, guaranteeing initialization
+	@SuppressWarnings("initialization.field.uninitialized")
+	// First position argument represents target directory
+	@Parameters(index = "0", description = "Path of directory to execute program on")
+	private String targetDir;
+
+	// Picocli automatically assigns values to arguments during runtime, guaranteeing initialization
+	@SuppressWarnings("initialization.field.uninitialized")
+	// All remaining positional arguments are parsed as module names.
+	@Parameters(index = "1", arity = "1..*", description = "Refactoring module(s) to use. Valid values: ${COMPLETION-CANDIDATES}", completionCandidates = ValidRefactoringModules.class)
+	private List<String> refactoringModules;
+
+	// Parses command-line arguments and executes run()
+	public static void main(String[] args) {
+		int exitCode = new CommandLine(new VGRTool()).execute(args);
+		System.exit(exitCode);
+	}
 
 	/**
 	 * Main method for the program; Runs refactorings to all Java files in a given
 	 * directory
-	 * 
-	 * @param args
-	 *            Path of directory to execute program on (args[0]) and refactoring
-	 *            modules to use (args[1...])
 	 */
-	public static void main(String[] args) {
-		if (args.length < 2) {
-
-			LOGGER.info("Usage: java VGRTool <sourceDirPath> <refactoringModules>");
-			LOGGER.info("Available Modules:");
-			LOGGER.info(" - " + AddNullCheckBeforeDereferenceRefactoring.NAME);
-			LOGGER.info(" - " + NestedNullRefactoring.NAME);
-			System.exit(1);
-		}
-
-		String targetDir = args[0];
-		String refactoringModule = args[1];
-
+	public void run() {
 		LOGGER.debug("Processing directory: {}", targetDir);
-		LOGGER.debug("Selected Refactoring Module: {}", refactoringModule);
+		LOGGER.debug("Selected Refactoring Module(s): {}", refactoringModules);
 
 		try {
 			// Step 1: Collect all Java files in the target directory
 			List<File> javaFiles = getJavaFiles(targetDir);
 
-			// Step 2: Process each Java file using the selected refactoring module
+			// Step 2: Process each Java file using the selected refactoring module(s)
 			for (File file : javaFiles) {
 				LOGGER.debug("Processing file: {}", file.getPath());
-				processFile(file, refactoringModule);
+				List<Refactoring> = processRefactorings(refactoringModules);
+				processFile(file, );
 			}
 
 			LOGGER.info("Refactoring completed successfully!");
 		} catch (IOException e) {
 			LOGGER.error("Encountered an error while attempting refactoring", e);
 		}
+	}
+
+	/**
+	 * Parses and converts {@value refactoringModuleNames} into a list of refactorings without duplicates.
+	 *
+	 * @param refactoringModuleNames
+	 *            A List<String> of refactoringModule names to parse
+	 **/
+	private static List<Refactoring> processRefactorings(List<String> refactoringModuleNames) {
+		// LinkedHashSet to preserve order
+		Set<Refactoring> refactoringSet = new LinkedHashSet<>(); 
+		for (String name : refactoringModuleNames) {
+			switch (name) {
+				case AddNullCheckBeforeDereferenceRefactoring.NAME ->
+					refactoringSet.add(new AddNullCheckBeforeDereferenceRefactoring());
+				case BooleanFlagRefactoring.NAME -> refactoringSet.add(new BooleanFlagRefactoring());
+				case SentinelRefactoring.NAME -> refactoringSet.add(new SentinelRefactoring());
+				case NestedNullRefactoring.NAME -> refactoringSet.add(new NestedNullRefactoring());
+				case "All" -> refactoringSet.addAll(Arrays.asList(new AddNullCheckBeforeDereferenceRefactoring(),
+						new BooleanFlagRefactoring(), new SentinelRefactoring(), new NestedNullRefactoring()));
+				// Should already be caught by Picocli
+				default -> throw new IllegalArgumentException("Unknown refactoring module: " + name);
+			}
+		}
+
+		if (refactoringSet.isEmpty()) {
+			throw new IllegalArgumentException("No valid refactorings specified");
+		}
+		return new ArrayList<>(refactoringSet);
 	}
 
 	/**
@@ -86,10 +131,10 @@ public class VGRTool {
 	 * 
 	 * @param file
 	 *            The file to refactor
-	 * @param refactoringModule
+	 * @param refactoringModules
 	 *            the refactoring to apply to the file
 	 */
-	private static void processFile(File file, String refactoringModule) {
+	private static void processFile(File file, List<Refactoring> refactoringModules) {
 		try {
 			// Step 3: Read the file content
 			String content = Files.readString(file.toPath());
@@ -114,9 +159,8 @@ public class VGRTool {
 
 			CompilationUnit cu = (CompilationUnit) parser.createAST(null);
 
-			// Step 5: Initialize RefactoringEngine with the selected module
-			List<String> selectedModules = Collections.singletonList(refactoringModule);
-			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules);
+			// Step 5: Initialize RefactoringEngine with the selected modules
+			RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringModules);
 
 			// Step 6: Apply refactorings using RefactoringEngine
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);
