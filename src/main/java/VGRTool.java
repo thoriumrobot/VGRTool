@@ -26,6 +26,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public class VGRTool {
 
 	private static final Logger LOGGER = LogManager.getLogger();
+	private static boolean searchOnly = false;
 
 	/**
 	 * Main method for the program; Runs refactorings to all Java files in a given
@@ -47,6 +48,12 @@ public class VGRTool {
 
 		String targetDir = args[0];
 		String refactoringModule = args[1];
+
+		if (args.length > 2) {
+			if (args[2].equals("--search")) {
+				searchOnly = true;
+			}
+		}
 
 		LOGGER.debug("Processing directory: {}", targetDir);
 		LOGGER.debug("Selected Refactoring Module: {}", refactoringModule);
@@ -118,14 +125,19 @@ public class VGRTool {
 			List<String> selectedModules = Collections.singletonList(refactoringModule);
 			RefactoringEngine refactoringEngine = new RefactoringEngine(selectedModules);
 
-			// Step 6: Apply refactorings using RefactoringEngine
+			// Step 6: Search or apply refactorings using RefactoringEngine
+			if (searchOnly) {
+				String filePath = file.getPath();
+				String fileName = file.getName();
+				refactoringEngine.searchRefactorings(cu, content, filePath, fileName);
+				return;
+			}
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);
 
 			// Step 7: Write the refactored code back to the file
 			Files.writeString(file.toPath(), refactoredSourceCode);
 
 			LOGGER.info("Refactored file saved: {}", file.getPath());
-
 		} catch (IOException e) {
 			LOGGER.error("Error processing file: {}", file.getPath(), e);
 		}

@@ -4,10 +4,38 @@
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%-5level] [%logger{36}]: %msg%n"/>
         </Console>
+
+        <!-- Creates a new file every time the program is run, rolling over the old file -->
+        <!-- The new file will be named according to fileName. -->
+        <!-- The rolled over file will be named according to filePattern: appended with the date and time of the rollover -->
+        <RollingFile name="SearchResults"
+                 fileName="SearchResults/searchResults.csv"
+                 filePattern="SearchResults/searchResults-%d{yyyy-MM-dd-HH-mm-ss}.csv"
+                 createOnDemand="true"
+                 append="true">
+
+            <!-- Only log passed message -->
+            <PatternLayout pattern="%msg%n">
+                <!-- Header is written once when the file is created -->
+                <Header>Refactoring Module,File Path,File Name,Line Number,Node Type,Code Snippet%n</Header>
+            </PatternLayout>
+
+            <Policies>
+                <!-- Rollover file every time the program is run -->
+                <OnStartupTriggeringPolicy />
+            </Policies>
+        </RollingFile>
     </Appenders>
+
     <Loggers>
-        <Root level="debug">
+        <!-- All level "debug" and above logs sent to default logger are printed to the Console -->
+        <Root level="info">
             <AppenderRef ref="Console"/>
         </Root>
+
+        <!-- Logger for search results -->
+        <Logger name="SearchLogger" level="info" additivity="false">
+            <AppenderRef ref="SearchResults"/>
+        </Logger>
     </Loggers>
 </Configuration>
