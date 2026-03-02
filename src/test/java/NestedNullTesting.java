@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 public class NestedNullTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testSingleRefactoring(input, expectedOutput, "NestedNullRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, new NestedNullRefactoring());
 	}
 
 	@Test

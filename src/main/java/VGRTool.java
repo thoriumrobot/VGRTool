@@ -40,13 +40,15 @@ public class VGRTool implements Runnable {
 		}
 	}
 
-	// Picocli automatically assigns values to arguments during runtime, guaranteeing initialization
+	// Picocli automatically assigns values to arguments during runtime,
+	// guaranteeing initialization
 	@SuppressWarnings("initialization.field.uninitialized")
 	// First position argument represents target directory
 	@Parameters(index = "0", description = "Path of directory to execute program on")
 	private String targetDir;
 
-	// Picocli automatically assigns values to arguments during runtime, guaranteeing initialization
+	// Picocli automatically assigns values to arguments during runtime,
+	// guaranteeing initialization
 	@SuppressWarnings("initialization.field.uninitialized")
 	// All remaining positional arguments are parsed as module names.
 	@Parameters(index = "1", arity = "1..*", description = "Refactoring module(s) to use. Valid values: ${COMPLETION-CANDIDATES}", completionCandidates = ValidRefactoringModules.class)
@@ -87,14 +89,15 @@ public class VGRTool implements Runnable {
 	}
 
 	/**
-	 * Parses and converts {@value refactoringModuleNames} into a list of refactorings without duplicates.
+	 * Parses and converts {@value refactoringModuleNames} into a list of
+	 * refactorings without duplicates.
 	 *
 	 * @param refactoringModuleNames
 	 *            A List<String> of refactoringModule names to parse
 	 **/
 	private static List<Refactoring> processRefactorings(List<String> refactoringModuleNames) {
 		// LinkedHashSet to preserve order
-		Set<Refactoring> refactoringSet = new LinkedHashSet<>(); 
+		Set<Refactoring> refactoringSet = new LinkedHashSet<>();
 		for (String name : refactoringModuleNames) {
 			switch (name) {
 				case AddNullCheckBeforeDereferenceRefactoring.NAME ->

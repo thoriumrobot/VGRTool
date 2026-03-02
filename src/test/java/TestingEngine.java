@@ -14,8 +14,8 @@ public class TestingEngine {
 	 * RefactoringEngine to use to run tests
 	 */
 	private static RefactoringEngine fullEngine = new RefactoringEngine(
-			Lists.newArrayList(AddNullCheckBeforeDereferenceRefactoring.NAME, BooleanFlagRefactoring.NAME,
-					NestedNullRefactoring.NAME, SentinelRefactoring.NAME));
+			Lists.newArrayList(new AddNullCheckBeforeDereferenceRefactoring(), new BooleanFlagRefactoring(),
+					new NestedNullRefactoring(), new SentinelRefactoring()));
 
 	// TODO: WRITE VARIANTS FOR SUPPORTED JAVA VERSIONS
 	private static ASTParser parser = ASTParser.newParser(AST.getJLSLatest()); // Use appropriate
@@ -31,7 +31,7 @@ public class TestingEngine {
 		runTest(input, expectedOutput, fullEngine);
 	}
 
-	public static void testSingleRefactoring(String input, String expectedOutput, String refactoring) {
+	public static void testSingleRefactoring(String input, String expectedOutput, Refactoring refactoring) {
 		runTest(input, expectedOutput, new RefactoringEngine(Collections.singletonList(refactoring)));
 	}
 

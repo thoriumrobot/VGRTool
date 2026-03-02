@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class DereferenceTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testSingleRefactoring(input, expectedOutput, AddNullCheckBeforeDereferenceRefactoring.NAME);
+		TestingEngine.testSingleRefactoring(input, expectedOutput, new AddNullCheckBeforeDereferenceRefactoring());
 	}
 
 	@Test
