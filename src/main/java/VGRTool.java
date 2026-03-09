@@ -21,7 +21,8 @@ import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import picocli.CommandLine;
-import picocli.CommandLine.*;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Parameters;
 
 /**
  * Program entrypoint class; Runs the refactoring engine on given source code
