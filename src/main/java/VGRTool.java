@@ -23,6 +23,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Option;
 
 /**
  * Program entrypoint class; Runs the refactoring engine on given source code
