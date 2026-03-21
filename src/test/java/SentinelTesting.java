@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class SentinelTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testSingleRefactoring(input, expectedOutput, "SentinelRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, new SentinelRefactoring());
 	}
 
 	@Test

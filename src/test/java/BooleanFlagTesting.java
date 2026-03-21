@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 public class BooleanFlagTesting {
 
 	public void test(String input, String expectedOutput) {
-		TestingEngine.testSingleRefactoring(input, expectedOutput, "BooleanFlagRefactoring");
+		TestingEngine.testSingleRefactoring(input, expectedOutput, new BooleanFlagRefactoring());
 	}
 
 	@Test
