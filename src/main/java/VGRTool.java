@@ -54,6 +54,9 @@ public class VGRTool implements Runnable {
 	@Parameters(index = "1", arity = "1..*", description = "Refactoring module(s) to use. Valid values: ${COMPLETION-CANDIDATES}", completionCandidates = ValidRefactoringModules.class)
 	private List<String> refactoringModules;
 
+	@Option(names = "--search", description = "Only search for valid refactorings without actually refactoring")
+	private static boolean searchOnly = false;
+
 	// Parses command-line arguments and executes run()
 	public static void main(String[] args) {
 		int exitCode = new CommandLine(new VGRTool()).execute(args);
@@ -164,14 +167,19 @@ public class VGRTool implements Runnable {
 			// Step 5: Initialize RefactoringEngine with the selected modules
 			RefactoringEngine refactoringEngine = new RefactoringEngine(refactoringModules);
 
-			// Step 6: Apply refactorings using RefactoringEngine
+			// Step 6: Search or apply refactorings using RefactoringEngine
+			if (searchOnly) {
+				String filePath = file.getPath();
+				String fileName = file.getName();
+				refactoringEngine.searchRefactorings(cu, content, filePath, fileName);
+				return;
+			}
 			String refactoredSourceCode = refactoringEngine.applyRefactorings(cu, content);
 
 			// Step 7: Write the refactored code back to the file
 			Files.writeString(file.toPath(), refactoredSourceCode);
 
 			LOGGER.info("Refactored file saved: {}", file.getPath());
-
 		} catch (IOException e) {
 			LOGGER.error("Error processing file: {}", file.getPath(), e);
 		}

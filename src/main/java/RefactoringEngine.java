@@ -17,6 +17,7 @@ import org.eclipse.text.edits.TextEdit;
  */
 public class RefactoringEngine {
 	private static final Logger LOGGER = LogManager.getLogger();
+	private static final Logger SEARCH_LOGGER = LogManager.getLogger("SearchLogger");
 
 	/**
 	 * List of refactorings to apply
@@ -68,4 +69,43 @@ public class RefactoringEngine {
 		return document.get();
 	}
 
+	/**
+	 * Searches a given source file for applicable refactorings in
+	 * {@value refactorings} Search results are logged to a CSV file via a dedicated
+	 * logger ("SearchLogger")
+	 * 
+	 * @param cu
+	 *            The compilation unit to use
+	 * @param sourceCode
+	 *            A string containing the source code of the file to search through
+	 * @param filePath
+	 *            A string containing the patth of the file to search through
+	 * @param fileName
+	 *            A string containing the name of the file to search through
+	 */
+	public void searchRefactorings(CompilationUnit cu, String sourceCode, String filePath, String fileName) {
+		Document document = new Document(sourceCode);
+
+		for (Refactoring refactoring : refactorings) {
+			cu.accept(new ASTVisitor() {
+				@Override
+				public void preVisit(ASTNode node) {
+					LOGGER.debug("Visiting AST Node {}", node);
+
+					if (!refactoring.isApplicable(node)) {
+						return;
+					}
+
+					String refactoringModule = refactoring.getClass().getSimpleName();
+					int lineNumber = cu.getLineNumber(node.getStartPosition());
+					String nodeClass = node.getClass().getSimpleName();
+					// Escape all new lines and quote the code snippet to preserve csv formatting
+					String codeSnippet = "\"" + node.toString().replace("\"", "\"\"") + "\"";
+
+					SEARCH_LOGGER.info("{},{},{},{},{},{}", refactoringModule, filePath, fileName, lineNumber,
+							nodeClass, codeSnippet);
+				}
+			});
+		}
+	}
 }
