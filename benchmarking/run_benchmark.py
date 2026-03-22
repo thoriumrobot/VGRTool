@@ -535,13 +535,21 @@ def main():
         "--debug", action="store_true", help="Enabling debugging statements."
     )
     argparser.add_argument(
+        "--init-only", action="store_true", help="Only run stage zero"
+    )
+    argparser.add_argument(
         "module", help="The refactoring module to use.", default="All"
     )
     args = argparser.parse_args()
     DEBUG = args.debug
     MODULE = args.module
 
-    run()
+    if args.init_only:
+        print("Running initialization only...")
+        stage_zero()
+        print("Skipping benchmarking stages...")
+    else:
+        run()
 
 
 if __name__ == "__main__":
