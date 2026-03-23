@@ -556,6 +556,11 @@ def main():
     argparser.add_argument(
         "module", help="The refactoring module to use.", default="All"
     )
+    argparser.add_argument(
+        "--print-build-cmd",
+        action="store_true",
+        help="Only print the NullAway build command for the selected dataset.",
+    )
     args = argparser.parse_args()
     DEBUG = args.debug
     MODULE = args.module
@@ -565,6 +570,12 @@ def main():
         print("Running initialization only...")
         stage_zero()
         print("Skipping benchmarking stages...")
+    elif args.print_build_cmd:
+        if not args.dataset:
+            print("Error: --print-build-cmd requires --dataset")
+            sys.exit(1)
+        cmd = " ".join(get_build_cmd(args.dataset))
+        print(cmd)
     else:
         run()
 
