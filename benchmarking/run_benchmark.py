@@ -42,8 +42,8 @@ NULLAWAY_JAR_DIR = f"{JARS_DIR}/nullaway"
 ANNOTATOR_JAR_DIR = f"{JARS_DIR}/annotator"
 PROCESSOR_JARS = [
     {
-        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.35.1-with-dependencies.jar",
-        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.35.1/error_prone_core-2.35.1.jar",
+        "PATH": f"{ERRORPRONE_JAR_DIR}/error_prone_core-2.48.0-with-dependencies.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.48.0/error_prone_core-2.48.0.jar",
     },
     {
         "PATH": f"{ERRORPRONE_JAR_DIR}/dataflow-errorprone-3.49.3-eisop1.jar",
@@ -54,8 +54,8 @@ PROCESSOR_JARS = [
         "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/google/code/findbugs/jFormatString/3.0.0/jFormatString-3.0.0.jar",
     },
     {
-        "PATH": f"{NULLAWAY_JAR_DIR}/nullaway-0.12.7.jar",
-        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.12.7/nullaway-0.12.7.jar",
+        "PATH": f"{NULLAWAY_JAR_DIR}/nullaway-0.13.1.jar",
+        "DOWNLOAD_URL": "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.13.1/nullaway-0.13.1.jar",
     },
     {
         "PATH": f"{NULLAWAY_JAR_DIR}/dataflow-nullaway-3.49.5.jar",
@@ -443,6 +443,7 @@ def get_build_cmd(dataset: str):
         f"{COMPILED_CLASSES_DIR}",
         "-cp",
         f"{lib_dir}:{ANNOTATOR_JAR}",
+        "-XDaddTypeAnnotationsToSymbol=true",
         "-XDcompilePolicy=simple",
         "--should-stop=ifError=FLOW",
         "-processorpath",
@@ -452,6 +453,8 @@ def get_build_cmd(dataset: str):
         "0",
         "-Xmaxwarns",
         "0",
+        "--release",
+        "8",
         f"@{src_file}",
     ]
     return build_cmd
