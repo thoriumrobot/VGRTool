@@ -99,6 +99,9 @@ results: list[BenchmarkingResult] = []
 # Arguments
 DEBUG = False  # Debug Mode
 MODULE = "All"  # Refactoring Module to use
+SELECTED_DATASET = (
+    None  # Single dataset to run if user decides to run only one benchmark
+)
 
 benchmark_start_time_string = f"{datetime.now():%Y-%m-%d_%H:%M:%S}"
 
@@ -181,7 +184,14 @@ def stage_one():
     """
     Runs the full benchmarking routine (Annotate -> Count Errors -> Refactor -> Annotate -> Count Errors) for every dataset in the NJR-1 dataset collection and then summarizes the results.
     """
-    datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
+
+    # If specific dataset is selected, only run that one.
+    if SELECTED_DATASET:
+        datasets_list = [SELECTED_DATASET]
+        print(f"Running benchmark for dataset: {SELECTED_DATASET}")
+    else:
+        datasets_list = os.listdir(DATASETS_REFACTORED_DIR)
+        print("Running benchmark for all datasets in {DATASETS_REFACTORED_DIR}")
 
     for dataset in datasets_list:
         print(f"Benchmarking {dataset}...")
@@ -530,18 +540,44 @@ def main():
     """Main entry point of the script."""
     global DEBUG
     global MODULE
+    global SELECTED_DATASET
     argparser = argparse.ArgumentParser(description="Runs benchmark.")
     argparser.add_argument(
         "--debug", action="store_true", help="Enabling debugging statements."
     )
     argparser.add_argument(
+        "--init-only", action="store_true", help="Only run stage zero"
+    )
+    argparser.add_argument(
+        "--dataset",
+        type=str,
+        help="Benchmark only a specific dataset (argument is the folder path).",
+    )
+    argparser.add_argument(
         "module", help="The refactoring module to use.", default="All"
+    )
+    argparser.add_argument(
+        "--print-build-cmd",
+        action="store_true",
+        help="Only print the NullAway build command for the selected dataset.",
     )
     args = argparser.parse_args()
     DEBUG = args.debug
     MODULE = args.module
+    SELECTED_DATASET = args.dataset
 
-    run()
+    if args.init_only:
+        print("Running initialization only...")
+        stage_zero()
+        print("Skipping benchmarking stages...")
+    elif args.print_build_cmd:
+        if not args.dataset:
+            print("Error: --print-build-cmd requires --dataset")
+            sys.exit(1)
+        cmd = " ".join(get_build_cmd(args.dataset))
+        print(cmd)
+    else:
+        run()
 
 
 if __name__ == "__main__":
